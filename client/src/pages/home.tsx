@@ -285,11 +285,12 @@ export default function Home() {
                         const isICloud = isICloudUrl(video.url);
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                            <div className="relative w-full overflow-hidden" style={{ paddingBottom: "56.25%" }}>
                               {embedUrl ? (
                                 <iframe
                                   src={embedUrl}
-                                  className="absolute top-0 left-0 w-full h-full"
+                                  className="absolute left-0 w-full h-[calc(100%+80px)]"
+                                  style={{ top: "-60px" }}
                                   frameBorder="0"
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                   allowFullScreen
