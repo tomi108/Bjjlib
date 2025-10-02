@@ -24,6 +24,10 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+function isICloudUrl(url: string): boolean {
+  return url.includes('icloud.com');
+}
+
 export default function Home() {
   const searchParams = new URLSearchParams(useSearch());
   const [, setLocation] = useLocation();
@@ -278,6 +282,7 @@ export default function Home() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {videos.map(video => {
                         const embedUrl = getEmbedUrl(video.url);
+                        const isICloud = isICloudUrl(video.url);
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
                             <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
@@ -294,15 +299,33 @@ export default function Home() {
                                 <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
                                     <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                                    <p className="text-sm text-gray-400">Cannot embed this URL</p>
-                                    <a
-                                      href={video.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-blue-500 hover:underline mt-1 block"
-                                    >
-                                      Open in new tab
-                                    </a>
+                                    {isICloud ? (
+                                      <>
+                                        <p className="text-sm font-medium text-gray-300 mb-1">iCloud videos cannot be embedded</p>
+                                        <p className="text-xs text-gray-500 mb-3">Apple blocks embedding for security reasons</p>
+                                        <a
+                                          href={video.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-block px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                        >
+                                          View on iCloud
+                                        </a>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-sm text-gray-400 mb-2">Cannot embed this URL</p>
+                                        <p className="text-xs text-gray-500 mb-3">Supported: YouTube, Vimeo</p>
+                                        <a
+                                          href={video.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-blue-500 hover:underline"
+                                        >
+                                          Open in new tab
+                                        </a>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               )}
