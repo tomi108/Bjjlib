@@ -11,7 +11,7 @@ import { AdminTab } from "@/components/admin-tab";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 
 function getEmbedUrl(url: string): string | null {
-  const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
   }
