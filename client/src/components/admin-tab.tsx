@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertVideoSchema, InsertVideo, VideoWithTags } from "@shared/schema";
+import { insertVideoSchema, InsertVideo, VideoWithTags, Tag } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, X, VideoIcon } from "lucide-react";
+import { TagAutosuggest } from "@/components/tag-autosuggest";
+import { Trash2, X, VideoIcon } from "lucide-react";
 
 export function AdminTab() {
-  const [tagInput, setTagInput] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,6 +38,10 @@ export function AdminTab() {
     },
   });
 
+  const { data: allTags = [] } = useQuery<Tag[]>({
+    queryKey: ["/api/tags"],
+  });
+
   const videos = videosData?.videos || [];
 
   const createVideoMutation = useMutation({
@@ -52,7 +56,6 @@ export function AdminTab() {
       });
       form.reset();
       setSelectedTags([]);
-      setTagInput("");
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
     },
@@ -86,23 +89,15 @@ export function AdminTab() {
     },
   });
 
-  const addTag = () => {
-    const normalizedTag = tagInput.toLowerCase().trim();
+  const addTag = (tagName: string) => {
+    const normalizedTag = tagName.toLowerCase().trim();
     if (normalizedTag && !selectedTags.includes(normalizedTag)) {
       setSelectedTags([...selectedTags, normalizedTag]);
-      setTagInput("");
     }
   };
 
   const removeTag = (tag: string) => {
     setSelectedTags(selectedTags.filter(t => t !== tag));
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addTag();
-    }
   };
 
   const onSubmit = (data: InsertVideo) => {
@@ -163,25 +158,14 @@ export function AdminTab() {
 
               <div className="space-y-2">
                 <FormLabel>Tags</FormLabel>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add tag (will be lowercased)..."
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-                    data-testid="input-tag"
-                  />
-                  <Button
-                    type="button"
-                    onClick={addTag}
-                    disabled={!tagInput.trim()}
-                    className="bg-blue-600 hover:bg-blue-700"
-                    data-testid="button-add-tag"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
+                <TagAutosuggest
+                  allTags={allTags}
+                  selectedTags={selectedTags}
+                  onAddTag={addTag}
+                  placeholder="Type to search or add new tag..."
+                  className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+                  testId="input-tag"
+                />
                 
                 {selectedTags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -215,7 +199,6 @@ export function AdminTab() {
                   onClick={() => {
                     form.reset();
                     setSelectedTags([]);
-                    setTagInput("");
                   }}
                   className="border-gray-700 hover:bg-gray-800"
                   data-testid="button-reset-form"

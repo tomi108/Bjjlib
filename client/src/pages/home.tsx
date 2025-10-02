@@ -4,11 +4,11 @@ import { useLocation, useSearch } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle } from "lucide-react";
 import { AdminTab } from "@/components/admin-tab";
+import { TagAutosuggest } from "@/components/tag-autosuggest";
 
 function getEmbedUrl(url: string): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
@@ -110,6 +110,14 @@ export default function Home() {
     setCurrentPage(1);
   };
 
+  const addTagByName = (tagName: string) => {
+    const tag = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+    if (tag && !selectedTagIds.includes(tag.id)) {
+      setSelectedTagIds(prev => [...prev, tag.id]);
+      setCurrentPage(1);
+    }
+  };
+
   const handleSearch = () => {
     setSearchQuery(inputValue);
     setCurrentPage(1);
@@ -179,6 +187,20 @@ export default function Home() {
                       <Search className="w-4 h-4" />
                     </Button>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Quick tag search
+                  </label>
+                  <TagAutosuggest
+                    allTags={allTags}
+                    selectedTags={selectedTags.map(t => t.name)}
+                    onAddTag={addTagByName}
+                    placeholder="Search tags..."
+                    className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
+                    testId="input-browse-tag-search"
+                  />
                 </div>
 
                 {selectedTags.length > 0 && (
