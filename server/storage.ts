@@ -215,7 +215,14 @@ export class DbStorage implements IStorage {
   }
 
   async getAllTags(): Promise<Tag[]> {
-    return db.select().from(tags).orderBy(tags.name).all();
+    const tagsWithVideos = db
+      .selectDistinct({ id: tags.id, name: tags.name })
+      .from(tags)
+      .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
+      .orderBy(tags.name)
+      .all();
+    
+    return tagsWithVideos;
   }
 
   async getTag(id: number): Promise<Tag | undefined> {
