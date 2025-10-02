@@ -53,7 +53,9 @@ export function AdminTab() {
 
       setIsFetchingTitle(true);
       const title = await fetchYouTubeTitle(urlValue);
-      if (title) {
+      
+      const currentTitle = form.getValues("title");
+      if (title && !currentTitle) {
         form.setValue("title", title);
       }
       setIsFetchingTitle(false);
