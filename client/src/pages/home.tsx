@@ -197,15 +197,15 @@ export default function Home() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedTags.map(tag => (
-                        <Badge
+                        <button
                           key={tag.id}
-                          className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
                           onClick={() => removeTag(tag.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors"
                           data-testid={`selected-tag-${tag.id}`}
                         >
                           {tag.name}
-                          <X className="w-3 h-3 ml-1" />
-                        </Badge>
+                          <X className="w-3 h-3" />
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -214,21 +214,23 @@ export default function Home() {
                 <div>
                   <h3 className="text-sm font-medium mb-2">Available tags</h3>
                   <div className="flex flex-wrap gap-2">
-                    {availableTags.map(tag => (
-                      <Badge
-                        key={tag.id}
-                        variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
-                        className={`cursor-pointer transition-colors ${
-                          selectedTagIds.includes(tag.id)
-                            ? "bg-blue-600 hover:bg-blue-700"
-                            : "border-gray-700 hover:bg-gray-800"
-                        }`}
-                        onClick={() => toggleTag(tag.id)}
-                        data-testid={`tag-filter-${tag.id}`}
-                      >
-                        {tag.name}
-                      </Badge>
-                    ))}
+                    {availableTags.map(tag => {
+                      const isSelected = selectedTagIds.includes(tag.id);
+                      return (
+                        <button
+                          key={tag.id}
+                          onClick={() => toggleTag(tag.id)}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "border border-gray-700 hover:bg-gray-800 text-gray-300"
+                          }`}
+                          data-testid={`tag-filter-${tag.id}`}
+                        >
+                          {tag.name}
+                        </button>
+                      );
+                    })}
                     {availableTags.length === 0 && selectedTagIds.length > 0 && (
                       <p className="text-sm text-gray-400">No co-occurring tags found</p>
                     )}
