@@ -6,19 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play } from "lucide-react";
 import { AdminTab } from "@/components/admin-tab";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 
-function getEmbedUrl(url: string): string | null {
+function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
-    return `https://www.youtube.com/embed/${youtubeMatch[1]}?modestbranding=1&rel=0&showinfo=0`;
+    const autoplayParam = autoplay ? '&autoplay=1' : '';
+    return `https://www.youtube.com/embed/${youtubeMatch[1]}?modestbranding=1&rel=0&showinfo=0${autoplayParam}`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
   if (vimeoMatch) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0`;
+    const autoplayParam = autoplay ? '&autoplay=1' : '';
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0${autoplayParam}`;
   }
 
   return null;
@@ -282,20 +284,55 @@ export default function Home() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {videos.map(video => {
                         const embedUrl = getEmbedUrl(video.url);
+                        const embedUrlWithAutoplay = getEmbedUrl(video.url, true);
                         const isICloud = isICloudUrl(video.url);
+                        
+                        const handlePlayClick = () => {
+                          if (!embedUrlWithAutoplay) return;
+                          
+                          const fullscreenDiv = document.createElement('div');
+                          fullscreenDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:black;z-index:9999;';
+                          
+                          const closeBtn = document.createElement('button');
+                          closeBtn.innerHTML = '✕';
+                          closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;z-index:10000;background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;';
+                          closeBtn.onclick = () => document.body.removeChild(fullscreenDiv);
+                          
+                          const iframe = document.createElement('iframe');
+                          iframe.src = embedUrlWithAutoplay;
+                          iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                          iframe.allowFullscreen = true;
+                          
+                          fullscreenDiv.appendChild(closeBtn);
+                          fullscreenDiv.appendChild(iframe);
+                          document.body.appendChild(fullscreenDiv);
+                        };
+                        
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div className="relative w-full overflow-hidden" style={{ paddingBottom: "56.25%" }}>
+                            <div className="relative w-full overflow-hidden group" style={{ paddingBottom: "56.25%" }}>
                               {embedUrl ? (
-                                <iframe
-                                  src={embedUrl}
-                                  className="absolute left-0 w-full h-[calc(100%+80px)]"
-                                  style={{ top: "-60px" }}
-                                  frameBorder="0"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                  title={video.title}
-                                />
+                                <>
+                                  <iframe
+                                    src={embedUrl}
+                                    className="absolute left-0 w-full h-[calc(100%+80px)]"
+                                    style={{ top: "-60px" }}
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    title={video.title}
+                                  />
+                                  <button
+                                    onClick={handlePlayClick}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                                    data-testid={`play-button-${video.id}`}
+                                  >
+                                    <div className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition-colors">
+                                      <Play className="w-8 h-8 text-white ml-1" fill="white" />
+                                    </div>
+                                  </button>
+                                </>
                               ) : (
                                 <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
