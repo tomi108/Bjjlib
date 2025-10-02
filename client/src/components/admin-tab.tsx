@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,10 +13,22 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
-import { Trash2, X, VideoIcon } from "lucide-react";
+import { Trash2, X, VideoIcon, Loader2 } from "lucide-react";
+
+async function fetchYouTubeTitle(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.title || null;
+  } catch {
+    return null;
+  }
+}
 
 export function AdminTab() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isFetchingTitle, setIsFetchingTitle] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -28,6 +40,28 @@ export function AdminTab() {
       tags: [],
     },
   });
+
+  const urlValue = form.watch("url");
+  const titleValue = form.watch("title");
+
+  useEffect(() => {
+    const fetchTitle = async () => {
+      if (!urlValue || titleValue) return;
+      
+      const isYouTube = urlValue.includes("youtube.com") || urlValue.includes("youtu.be");
+      if (!isYouTube) return;
+
+      setIsFetchingTitle(true);
+      const title = await fetchYouTubeTitle(urlValue);
+      if (title) {
+        form.setValue("title", title);
+      }
+      setIsFetchingTitle(false);
+    };
+
+    const timeoutId = setTimeout(fetchTitle, 500);
+    return () => clearTimeout(timeoutId);
+  }, [urlValue, titleValue, form]);
 
   const { data: videosData } = useQuery<{ videos: VideoWithTags[]; total: number }>({
     queryKey: ["/api/videos", { page: 1, limit: 1000 }],
@@ -123,14 +157,24 @@ export function AdminTab() {
                   <FormItem>
                     <FormLabel>Title *</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="e.g., Kimura from Side Control"
-                        {...field}
-                        className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-                        data-testid="input-video-title"
-                      />
+                      <div className="relative">
+                        <Input
+                          placeholder="e.g., Kimura from Side Control"
+                          {...field}
+                          className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+                          data-testid="input-video-title"
+                        />
+                        {isFetchingTitle && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
+                    {isFetchingTitle && (
+                      <p className="text-xs text-blue-400">Fetching title from YouTube...</p>
+                    )}
                   </FormItem>
                 )}
               />
@@ -151,7 +195,7 @@ export function AdminTab() {
                       />
                     </FormControl>
                     <FormMessage />
-                    <p className="text-xs text-gray-400">YouTube or Vimeo URL for embedding</p>
+                    <p className="text-xs text-gray-400">YouTube or Vimeo URL - Title auto-fills from YouTube if empty</p>
                   </FormItem>
                 )}
               />
