@@ -1,32 +1,43 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVideoSchema, insertTagSchema } from "@shared/schema";
+import { insertVideoSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
   });
 
-  // Video routes
-  app.get("/api/videos", async (_req, res) => {
+  app.get("/api/videos", async (req, res) => {
     try {
-      const videos = await storage.getAllVideos();
-      res.json(videos);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string;
+      const tagIdsParam = req.query.tagIds as string;
+      const tagIds = tagIdsParam ? tagIdsParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+
+      const result = await storage.getAllVideos({ page, limit, search, tagIds });
+      res.json(result);
     } catch (error) {
+      console.error("Error fetching videos:", error);
       res.status(500).json({ message: "Failed to fetch videos" });
     }
   });
 
   app.get("/api/videos/:id", async (req, res) => {
     try {
-      const video = await storage.getVideo(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid video ID" });
+      }
+
+      const video = await storage.getVideo(id);
       if (!video) {
         return res.status(404).json({ message: "Video not found" });
       }
       res.json(video);
     } catch (error) {
+      console.error("Error fetching video:", error);
       res.status(500).json({ message: "Failed to fetch video" });
     }
   });
@@ -47,8 +58,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/videos/:id", async (req, res) => {
     try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid video ID" });
+      }
+
       const validatedData = insertVideoSchema.partial().parse(req.body);
-      const video = await storage.updateVideo(req.params.id, validatedData);
+      const video = await storage.updateVideo(id, validatedData);
       if (!video) {
         return res.status(404).json({ message: "Video not found" });
       }
@@ -64,66 +80,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/videos/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteVideo(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid video ID" });
+      }
+
+      const deleted = await storage.deleteVideo(id);
       if (!deleted) {
         return res.status(404).json({ message: "Video not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting video:", error);
       res.status(500).json({ message: "Failed to delete video" });
     }
   });
 
-  // Tag routes
   app.get("/api/tags", async (_req, res) => {
     try {
       const tags = await storage.getAllTags();
       res.json(tags);
     } catch (error) {
+      console.error("Error fetching tags:", error);
       res.status(500).json({ message: "Failed to fetch tags" });
     }
   });
 
-  app.post("/api/tags", async (req, res) => {
+  app.get("/api/tags/co-occurring", async (req, res) => {
     try {
-      const validatedData = insertTagSchema.parse(req.body);
-      const tag = await storage.createTag(validatedData);
-      res.status(201).json(tag);
+      const tagIdsParam = req.query.tagIds as string;
+      const selectedTagIds = tagIdsParam ? tagIdsParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+      
+      const tags = await storage.getCoOccurringTags(selectedTagIds);
+      res.json(tags);
     } catch (error) {
-      if (error instanceof Error) {
-        res.status(400).json({ message: error.message });
-      } else {
-        res.status(500).json({ message: "Failed to create tag" });
-      }
-    }
-  });
-
-  app.put("/api/tags/:id", async (req, res) => {
-    try {
-      const validatedData = insertTagSchema.partial().parse(req.body);
-      const tag = await storage.updateTag(req.params.id, validatedData);
-      if (!tag) {
-        return res.status(404).json({ message: "Tag not found" });
-      }
-      res.json(tag);
-    } catch (error) {
-      if (error instanceof Error) {
-        res.status(400).json({ message: error.message });
-      } else {
-        res.status(500).json({ message: "Failed to update tag" });
-      }
-    }
-  });
-
-  app.delete("/api/tags/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteTag(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Tag not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete tag" });
+      console.error("Error fetching co-occurring tags:", error);
+      res.status(500).json({ message: "Failed to fetch co-occurring tags" });
     }
   });
 

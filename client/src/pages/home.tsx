@@ -1,283 +1,356 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Video, Tag } from "@shared/schema";
-import { VideoCard } from "@/components/video-card";
-import { VideoForm } from "@/components/video-form";
-import { TagManager } from "@/components/tag-manager";
-import { VideoTable } from "@/components/video-table";
+import { useLocation, useSearch } from "wouter";
+import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Video as VideoIcon, Settings, Search, Heart, Keyboard } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle } from "lucide-react";
+import { AdminTab } from "@/components/admin-tab";
+
+function getEmbedUrl(url: string): string | null {
+  const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  if (youtubeMatch) {
+    return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+  }
+
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) {
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  }
+
+  return null;
+}
 
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const searchParams = new URLSearchParams(useSearch());
+  const [, setLocation] = useLocation();
+
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
+    const tagIds = searchParams.get("tags");
+    return tagIds ? tagIds.split(",").map(Number).filter(n => !isNaN(n)) : [];
+  });
+  const [currentPage, setCurrentPage] = useState(() => {
+    const page = parseInt(searchParams.get("page") || "1");
+    return isNaN(page) ? 1 : page;
+  });
   const [activeTab, setActiveTab] = useState("browse");
+  const [inputValue, setInputValue] = useState(searchQuery);
 
-  const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery<Video[]>({
-    queryKey: ["/api/videos"],
-  });
-
-  const { data: tags = [], isLoading: tagsLoading, refetch: refetchTags } = useQuery<Tag[]>({
-    queryKey: ["/api/tags"],
-  });
-
-  const { data: healthData } = useQuery<{ status: string; timestamp: string }>({
-    queryKey: ["/api/health"],
-    refetchInterval: 30000,
-  });
-
-  const filteredVideos = videos.filter(video => {
-    const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         video.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTags = selectedTags.length === 0 || 
-                       selectedTags.some(tag => video.tags?.includes(tag));
-    return matchesSearch && matchesTags;
-  });
-
-  const toggleTag = (tagName: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagName) 
-        ? prev.filter(t => t !== tagName)
-        : [...prev, tagName]
-    );
-  };
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedTags([]);
+  const updateUrl = (query: string, tags: number[], page: number) => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (tags.length > 0) params.set("tags", tags.join(","));
+    if (page > 1) params.set("page", page.toString());
+    const newSearch = params.toString();
+    setLocation(`/?${newSearch}`, { replace: true });
   };
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      switch (e.key.toLowerCase()) {
-        case 'b':
-          setActiveTab("browse");
-          break;
-        case 'a':
-          setActiveTab("admin");
-          break;
-        case '/':
-          e.preventDefault();
-          document.getElementById('search-input')?.focus();
-          break;
-      }
-    };
+    updateUrl(searchQuery, selectedTagIds, currentPage);
+  }, [searchQuery, selectedTagIds, currentPage]);
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const { data: videosData, isLoading: videosLoading } = useQuery<{ videos: VideoWithTags[]; total: number }>({
+    queryKey: ["/api/videos", { page: currentPage, search: searchQuery, tagIds: selectedTagIds }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", currentPage.toString());
+      params.set("limit", "20");
+      if (searchQuery) params.set("search", searchQuery);
+      if (selectedTagIds.length > 0) params.set("tagIds", selectedTagIds.join(","));
 
-  const isHealthy = healthData?.status === "healthy";
+      const response = await fetch(`/api/videos?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch videos");
+      return response.json();
+    },
+  });
+
+  const { data: availableTags = [] } = useQuery<Tag[]>({
+    queryKey: ["/api/tags/co-occurring", selectedTagIds],
+    queryFn: async () => {
+      if (selectedTagIds.length === 0) {
+        const response = await fetch("/api/tags");
+        if (!response.ok) throw new Error("Failed to fetch tags");
+        return response.json();
+      }
+
+      const params = new URLSearchParams();
+      params.set("tagIds", selectedTagIds.join(","));
+      const response = await fetch(`/api/tags/co-occurring?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch co-occurring tags");
+      return response.json();
+    },
+  });
+
+  const { data: allTags = [] } = useQuery<Tag[]>({
+    queryKey: ["/api/tags"],
+  });
+
+  const videos = videosData?.videos || [];
+  const totalVideos = videosData?.total || 0;
+  const totalPages = Math.ceil(totalVideos / 20);
+
+  const selectedTags = allTags.filter(tag => selectedTagIds.includes(tag.id));
+
+  const toggleTag = (tagId: number) => {
+    setSelectedTagIds(prev => {
+      if (prev.includes(tagId)) {
+        return prev.filter(id => id !== tagId);
+      }
+      return [...prev, tagId];
+    });
+    setCurrentPage(1);
+  };
+
+  const removeTag = (tagId: number) => {
+    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
+    setCurrentPage(1);
+  };
+
+  const handleSearch = () => {
+    setSearchQuery(inputValue);
+    setCurrentPage(1);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const clearAll = () => {
+    setInputValue("");
+    setSearchQuery("");
+    setSelectedTagIds([]);
+    setCurrentPage(1);
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-lg">
-                <VideoIcon className="w-5 h-5" />
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <VideoIcon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Bjjlib</h1>
-                <p className="text-xs text-muted-foreground">BJJ Video Library</p>
+                <h1 className="text-xl font-bold">Bjjlib</h1>
+                <p className="text-xs text-gray-400">BJJ Video Library</p>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/10 border border-border">
-                <span className="relative flex h-2 w-2">
-                  {isHealthy ? (
-                    <>
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </>
-                  ) : (
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  )}
-                </span>
-                <span className="text-xs text-muted-foreground font-medium">
-                  API {isHealthy ? 'Healthy' : 'Unhealthy'}
-                </span>
-              </div>
-              
-              <Button variant="outline" size="sm" className="hidden md:flex items-center gap-2" data-testid="button-shortcuts">
-                <Keyboard className="w-4 h-4" />
-                <span className="text-xs">Shortcuts</span>
-                <kbd className="kbd-shortcut">?</kbd>
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="browse" className="flex items-center gap-2" data-testid="tab-browse">
-              <VideoIcon className="w-4 h-4" />
+          <TabsList className="grid w-full grid-cols-2 max-w-md bg-gray-900 border border-gray-800">
+            <TabsTrigger value="browse" className="data-[state=active]:bg-blue-600" data-testid="tab-browse">
               Browse
-              <kbd className="kbd-shortcut ml-1">B</kbd>
             </TabsTrigger>
-            <TabsTrigger value="admin" className="flex items-center gap-2" data-testid="tab-admin">
-              <Settings className="w-4 h-4" />
+            <TabsTrigger value="admin" className="data-[state=active]:bg-blue-600" data-testid="tab-admin">
               Admin
-              <kbd className="kbd-shortcut ml-1">A</kbd>
             </TabsTrigger>
           </TabsList>
 
-          {/* Browse Tab */}
           <TabsContent value="browse" className="mt-8">
-            <div className="mb-8 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              <aside className="lg:col-span-1 space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">Video Library</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {videos.length} videos available
-                  </p>
+                  <label htmlFor="search" className="block text-sm font-medium mb-2">
+                    Search by title
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="search"
+                      type="text"
+                      placeholder="Search..."
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
+                      data-testid="input-search"
+                    />
+                    <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700" data-testid="button-search">
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    id="search-input"
-                    type="search"
-                    placeholder="Search videos..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                    data-testid="input-search"
-                  />
-                </div>
-              </div>
-              
-              {/* Tag Filter */}
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-sm font-medium text-muted-foreground">Filter by tag:</span>
-                {tags.map(tag => (
-                  <Badge
-                    key={tag.id}
-                    variant={selectedTags.includes(tag.name) ? "default" : "outline"}
-                    className="cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => toggleTag(tag.name)}
-                    data-testid={`tag-filter-${tag.name}`}
-                  >
-                    {tag.name}
-                  </Badge>
-                ))}
-                {(searchQuery || selectedTags.length > 0) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="text-muted-foreground hover:text-foreground"
-                    data-testid="button-clear-filters"
-                  >
-                    Clear all
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            {/* Video Grid */}
-            {videosLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-card rounded-lg border border-border overflow-hidden">
-                    <div className="w-full h-48 bg-muted animate-pulse" />
-                    <div className="p-4 space-y-2">
-                      <div className="h-4 bg-muted animate-pulse rounded" />
-                      <div className="h-3 bg-muted animate-pulse rounded w-3/4" />
+                {selectedTags.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Selected tags</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAll}
+                        className="text-xs text-gray-400 hover:text-gray-100"
+                        data-testid="button-clear-all"
+                      >
+                        Clear all
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTags.map(tag => (
+                        <Badge
+                          key={tag.id}
+                          className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                          onClick={() => removeTag(tag.id)}
+                          data-testid={`selected-tag-${tag.id}`}
+                        >
+                          {tag.name}
+                          <X className="w-3 h-3 ml-1" />
+                        </Badge>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : filteredVideos.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredVideos.map(video => (
-                  <VideoCard key={video.id} video={video} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/20 mb-4">
-                  <Search className="w-8 h-8 text-muted-foreground" />
+                )}
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Available tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.map(tag => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
+                        className={`cursor-pointer transition-colors ${
+                          selectedTagIds.includes(tag.id)
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "border-gray-700 hover:bg-gray-800"
+                        }`}
+                        onClick={() => toggleTag(tag.id)}
+                        data-testid={`tag-filter-${tag.id}`}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {availableTags.length === 0 && selectedTagIds.length > 0 && (
+                      <p className="text-sm text-gray-400">No co-occurring tags found</p>
+                    )}
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">No videos found</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  {videos.length === 0 
-                    ? "No videos have been added yet. Switch to the Admin tab to add your first video."
-                    : "Try adjusting your filters or search terms"
-                  }
-                </p>
-                {(searchQuery || selectedTags.length > 0) && (
-                  <Button onClick={clearFilters} data-testid="button-clear-filters-empty">
-                    Clear all filters
-                  </Button>
+              </aside>
+
+              <div className="lg:col-span-3">
+                {videosLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[...Array(4)].map((_, i) => (
+                      <Card key={i} className="bg-gray-900 border-gray-800">
+                        <div className="w-full h-48 bg-gray-800 animate-pulse" />
+                        <CardContent className="p-4 space-y-2">
+                          <div className="h-4 bg-gray-800 animate-pulse rounded" />
+                          <div className="h-3 bg-gray-800 animate-pulse rounded w-3/4" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : videos.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {videos.map(video => {
+                        const embedUrl = getEmbedUrl(video.url);
+                        return (
+                          <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
+                            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                              {embedUrl ? (
+                                <iframe
+                                  src={embedUrl}
+                                  className="absolute top-0 left-0 w-full h-full"
+                                  frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  title={video.title}
+                                />
+                              ) : (
+                                <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
+                                  <div className="text-center p-4">
+                                    <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-400">Cannot embed this URL</p>
+                                    <a
+                                      href={video.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-500 hover:underline mt-1 block"
+                                    >
+                                      Open in new tab
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold mb-2" data-testid={`video-title-${video.id}`}>{video.title}</h3>
+                              <div className="flex flex-wrap gap-1">
+                                {video.tags.map(tag => (
+                                  <Badge key={tag.id} variant="secondary" className="text-xs bg-gray-800">
+                                    {tag.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-4 mt-8">
+                        <Button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          variant="outline"
+                          className="border-gray-700 hover:bg-gray-800"
+                          data-testid="button-prev-page"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" />
+                          Previous
+                        </Button>
+                        <span className="text-sm text-gray-400" data-testid="page-info">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          variant="outline"
+                          className="border-gray-700 hover:bg-gray-800"
+                          data-testid="button-next-page"
+                        >
+                          Next
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-16">
+                    <VideoIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No videos found</h3>
+                    <p className="text-sm text-gray-400 mb-6">
+                      {searchQuery || selectedTagIds.length > 0
+                        ? "Try adjusting your search or filters"
+                        : "No videos have been added yet. Switch to Admin to add your first video."}
+                    </p>
+                    {(searchQuery || selectedTagIds.length > 0) && (
+                      <Button onClick={clearAll} className="bg-blue-600 hover:bg-blue-700">
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
           </TabsContent>
 
-          {/* Admin Tab */}
           <TabsContent value="admin" className="mt-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              <VideoForm onVideoAdded={() => { refetchVideos(); refetchTags(); }} tags={tags} />
-              <TagManager onTagsChanged={() => { refetchTags(); refetchVideos(); }} tags={tags} />
-            </div>
-            
-            {videos.length > 0 ? (
-              <VideoTable 
-                videos={videos} 
-                onVideoDeleted={() => { refetchVideos(); refetchTags(); }}
-                onVideoUpdated={() => { refetchVideos(); refetchTags(); }}
-              />
-            ) : (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/20 mb-4">
-                  <VideoIcon className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">No videos yet</h3>
-                <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                  Get started by adding your first BJJ technique video using the form above
-                </p>
-              </div>
-            )}
+            <AdminTab />
           </TabsContent>
         </Tabs>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-card border-t border-border mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-muted-foreground">
-              <strong className="font-medium text-foreground">Bjjlib</strong> - BJJ Video Library Management
-            </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a 
-                href="/api/health" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1 flex items-center gap-1"
-                data-testid="link-health-check"
-              >
-                <Heart className="w-3 h-3" />
-                Health Check
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
