@@ -165,6 +165,7 @@ export function AdminTab() {
                   placeholder="Type to search or add new tag..."
                   className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
                   testId="input-tag"
+                  allowNewTags={true}
                 />
                 
                 {selectedTags.length > 0 && (

@@ -311,9 +311,9 @@ export default function Home() {
                               <h3 className="font-semibold mb-2" data-testid={`video-title-${video.id}`}>{video.title}</h3>
                               <div className="flex flex-wrap gap-1">
                                 {video.tags.map(tag => (
-                                  <Badge key={tag.id} variant="secondary" className="text-xs bg-gray-800">
+                                  <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300">
                                     {tag.name}
-                                  </Badge>
+                                  </span>
                                 ))}
                               </div>
                             </CardContent>

@@ -9,6 +9,7 @@ interface TagAutosuggestProps {
   placeholder?: string;
   className?: string;
   testId?: string;
+  allowNewTags?: boolean;
 }
 
 export function TagAutosuggest({
@@ -17,7 +18,8 @@ export function TagAutosuggest({
   onAddTag,
   placeholder = "Search tags...",
   className = "",
-  testId = "input-tag-search"
+  testId = "input-tag-search",
+  allowNewTags = false
 }: TagAutosuggestProps) {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -48,7 +50,7 @@ export function TagAutosuggest({
       e.preventDefault();
       if (filteredSuggestions.length > 0) {
         handleSelectTag(filteredSuggestions[0].name);
-      } else if (inputValue.trim()) {
+      } else if (allowNewTags && inputValue.trim()) {
         onAddTag(inputValue.trim());
         setInputValue("");
         setShowSuggestions(false);
