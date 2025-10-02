@@ -1,6 +1,6 @@
-import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, videos, tags, videoTags } from "@shared/schema";
+import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession, videos, tags, videoTags, adminSessions } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, inArray } from "drizzle-orm";
+import { eq, sql, and, inArray, lt } from "drizzle-orm";
 
 export interface IStorage {
   getAllVideos(options?: { page?: number; limit?: number; search?: string; tagIds?: number[] }): Promise<{ videos: VideoWithTags[]; total: number }>;
@@ -15,6 +15,12 @@ export interface IStorage {
   createOrGetTag(name: string): Promise<Tag>;
   
   getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]>;
+  
+  createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession>;
+  getAdminSession(sessionId: string): Promise<AdminSession | undefined>;
+  deleteAdminSession(sessionId: string): Promise<boolean>;
+  cleanupExpiredSessions(): Promise<void>;
+  
   initializeDatabase(): Promise<void>;
 }
 
@@ -50,6 +56,14 @@ export class DbStorage implements IStorage {
 
       db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_video_id ON video_tags(video_id)`);
       db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_tag_id ON video_tags(tag_id)`);
+
+      db.run(sql`
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+          id TEXT PRIMARY KEY,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          expires_at INTEGER NOT NULL
+        )
+      `);
 
       const defaultTags = ['fundamentals', 'guard', 'submissions', 'sweeps', 'takedowns'];
       for (const tagName of defaultTags) {
@@ -277,6 +291,35 @@ export class DbStorage implements IStorage {
       .where(inArray(tags.id, coOccurringTagIds))
       .orderBy(tags.name)
       .all();
+  }
+
+  async createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession> {
+    return db.insert(adminSessions).values({
+      id: sessionId,
+      expiresAt,
+    }).returning().get();
+  }
+
+  async getAdminSession(sessionId: string): Promise<AdminSession | undefined> {
+    const session = db.select().from(adminSessions).where(eq(adminSessions.id, sessionId)).get();
+    if (!session) return undefined;
+    
+    if (new Date(session.expiresAt) < new Date()) {
+      await this.deleteAdminSession(sessionId);
+      return undefined;
+    }
+    
+    return session;
+  }
+
+  async deleteAdminSession(sessionId: string): Promise<boolean> {
+    const result = db.delete(adminSessions).where(eq(adminSessions.id, sessionId)).returning().get();
+    return !!result;
+  }
+
+  async cleanupExpiredSessions(): Promise<void> {
+    const now = new Date();
+    db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run();
   }
 }
 

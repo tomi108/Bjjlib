@@ -21,6 +21,12 @@ export const videoTags = sqliteTable("video_tags", {
   tagId: integer("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
 });
 
+export const adminSessions = sqliteTable("admin_sessions", {
+  id: text("id").primaryKey(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+});
+
 export const insertVideoSchema = createInsertSchema(videos).omit({
   id: true,
   dateAdded: true,
@@ -37,5 +43,11 @@ export type Video = typeof videos.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
 export type Tag = typeof tags.$inferSelect;
 export type VideoTag = typeof videoTags.$inferSelect;
+export type AdminSession = typeof adminSessions.$inferSelect;
 
 export type VideoWithTags = Video & { tags: Tag[] };
+
+export const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
