@@ -311,28 +311,17 @@ export default function Home() {
                         
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div className="relative w-full overflow-hidden group" style={{ paddingBottom: "56.25%" }}>
+                            <div className="relative w-full overflow-hidden" style={{ paddingBottom: "56.25%" }}>
                               {embedUrl ? (
-                                <>
-                                  <iframe
-                                    src={embedUrl}
-                                    className="absolute left-0 w-full h-[calc(100%+80px)]"
-                                    style={{ top: "-60px" }}
-                                    frameBorder="0"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    title={video.title}
-                                  />
-                                  <button
-                                    onClick={handlePlayClick}
-                                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                                    data-testid={`play-button-${video.id}`}
-                                  >
-                                    <div className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition-colors">
-                                      <Play className="w-8 h-8 text-white ml-1" fill="white" />
-                                    </div>
-                                  </button>
-                                </>
+                                <button
+                                  onClick={handlePlayClick}
+                                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 cursor-pointer transition-all group"
+                                  data-testid={`play-button-${video.id}`}
+                                >
+                                  <div className="w-20 h-20 rounded-full bg-blue-600 group-hover:bg-blue-700 group-hover:scale-110 flex items-center justify-center transition-all shadow-lg">
+                                    <Play className="w-10 h-10 text-white ml-1" fill="white" />
+                                  </div>
+                                </button>
                               ) : (
                                 <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
