@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
+import { randomBytes } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (_req, res) => {
@@ -116,6 +117,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching co-occurring tags:", error);
       res.status(500).json({ message: "Failed to fetch co-occurring tags" });
+    }
+  });
+
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password || password !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+
+      const sessionId = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      
+      await storage.createAdminSession(sessionId, expiresAt);
+      
+      res.cookie('adminSessionId', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        expires: expiresAt
+      });
+      
+      res.json({ isAdmin: true });
+    } catch (error) {
+      console.error("Error logging in:", error);
+      res.status(500).json({ message: "Failed to log in" });
+    }
+  });
+
+  app.post("/api/admin/logout", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (sessionId) {
+        await storage.deleteAdminSession(sessionId);
+      }
+      
+      res.clearCookie('adminSessionId');
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error logging out:", error);
+      res.status(500).json({ message: "Failed to log out" });
+    }
+  });
+
+  app.get("/api/admin/session", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.json({ isAdmin: false });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.json({ isAdmin: false });
+      }
+      
+      res.json({ isAdmin: true });
+    } catch (error) {
+      console.error("Error checking session:", error);
+      res.status(500).json({ message: "Failed to check session" });
     }
   });
 

@@ -26,9 +26,14 @@ async function fetchYouTubeTitle(url: string): Promise<string | null> {
   }
 }
 
-export function AdminTab() {
+interface AdminTabProps {
+  isAdmin: boolean;
+}
+
+export function AdminTab({ isAdmin }: AdminTabProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isFetchingTitle, setIsFetchingTitle] = useState(false);
+  const [password, setPassword] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -125,6 +130,49 @@ export function AdminTab() {
     },
   });
 
+  const loginMutation = useMutation({
+    mutationFn: async (password: string) => {
+      const response = await apiRequest("POST", "/api/admin/login", { password });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Login successful",
+        description: "You are now logged in as admin",
+      });
+      setPassword("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/session"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/logout", {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Logged out",
+        description: "You have been logged out",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/session"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const addTag = (tagName: string) => {
     const normalizedTag = tagName.toLowerCase().trim();
     if (normalizedTag && !selectedTags.includes(normalizedTag)) {
@@ -143,8 +191,62 @@ export function AdminTab() {
     });
   };
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password) {
+      loginMutation.mutate(password);
+    }
+  };
+
+  if (!isAdmin) {
+    return (
+      <Card className="bg-gray-900 border-gray-800 max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle>Admin Login</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="admin-password" className="block text-sm font-medium mb-2">
+                Password
+              </label>
+              <Input
+                id="admin-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter admin password"
+                className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+                data-testid="input-admin-password"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={loginMutation.isPending || !password}
+              data-testid="button-login"
+            >
+              {loginMutation.isPending ? "Logging in..." : "Login"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <Button
+          onClick={() => logoutMutation.mutate()}
+          variant="outline"
+          className="border-gray-700 hover:bg-gray-800"
+          disabled={logoutMutation.isPending}
+          data-testid="button-logout"
+        >
+          {logoutMutation.isPending ? "Logging out..." : "Logout"}
+        </Button>
+      </div>
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
           <CardTitle>Add New Video</CardTitle>

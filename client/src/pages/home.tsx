@@ -57,8 +57,27 @@ export default function Home() {
     const page = parseInt(searchParams.get("page") || "1");
     return isNaN(page) ? 1 : page;
   });
-  const [activeTab, setActiveTab] = useState("browse");
   const [inputValue, setInputValue] = useState(searchQuery);
+
+  const { data: adminStatus, status: adminStatusQueryStatus } = useQuery<{ isAdmin: boolean }>({
+    queryKey: ["/api/admin/session"],
+  });
+
+  const isAdmin = adminStatus?.isAdmin ?? false;
+  const adminStatusResolved = adminStatusQueryStatus === 'success' || adminStatusQueryStatus === 'error';
+  const [activeTab, setActiveTab] = useState<string>("");
+
+  useEffect(() => {
+    if (!adminStatusResolved) return;
+    
+    if (activeTab === "") {
+      setActiveTab(isAdmin ? "browse" : "admin");
+    } else if (!isAdmin && activeTab === "browse") {
+      setActiveTab("admin");
+    }
+  }, [isAdmin, activeTab, adminStatusResolved]);
+
+  const effectiveActiveTab = !isAdmin && activeTab === "browse" ? "admin" : activeTab;
 
   const updateUrl = (query: string, tags: number[], page: number) => {
     const params = new URLSearchParams();
@@ -175,17 +194,26 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md bg-gray-900 border border-gray-800">
-            <TabsTrigger value="browse" className="data-[state=active]:bg-blue-600" data-testid="tab-browse">
-              Browse
-            </TabsTrigger>
-            <TabsTrigger value="admin" className="data-[state=active]:bg-blue-600" data-testid="tab-admin">
-              Admin
-            </TabsTrigger>
-          </TabsList>
+        {!adminStatusResolved || effectiveActiveTab === "" ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <Tabs value={effectiveActiveTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} max-w-md bg-gray-900 border border-gray-800`}>
+              {isAdmin && (
+                <TabsTrigger value="browse" className="data-[state=active]:bg-blue-600" data-testid="tab-browse">
+                  Browse
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="admin" className="data-[state=active]:bg-blue-600" data-testid="tab-admin">
+                Admin
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="browse" className="mt-8">
+          <>
+            {isAdmin && (
+              <TabsContent value="browse" className="mt-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <aside className="lg:col-span-1 space-y-6">
                 <div>
@@ -442,11 +470,14 @@ export default function Home() {
               </div>
             </div>
           </TabsContent>
+            )}
 
-          <TabsContent value="admin" className="mt-8">
-            <AdminTab />
-          </TabsContent>
+            <TabsContent value="admin" className="mt-8">
+              <AdminTab isAdmin={isAdmin} />
+            </TabsContent>
+          </>
         </Tabs>
+        )}
       </main>
     </div>
   );
