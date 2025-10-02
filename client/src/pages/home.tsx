@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play } from "lucide-react";
 import { AdminTab } from "@/components/admin-tab";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 
@@ -299,6 +299,7 @@ export default function Home() {
                       {videos.map(video => {
                         const embedUrl = getEmbedUrl(video.url);
                         const embedUrlWithAutoplay = getEmbedUrl(video.url, true);
+                        const thumbnailUrl = getThumbnailUrl(video.url);
                         const isICloud = isICloudUrl(video.url);
                         
                         const handlePlayClick = () => {
@@ -325,22 +326,25 @@ export default function Home() {
                         
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div 
-                              className="relative w-full overflow-hidden cursor-pointer" 
-                              style={{ paddingBottom: "56.25%" }}
-                              onClick={handlePlayClick}
-                              data-testid={`video-container-${video.id}`}
-                            >
-                              {embedUrl ? (
-                                <iframe
-                                  src={embedUrl}
-                                  className="absolute left-0 w-full h-[calc(100%+80px)] pointer-events-none"
-                                  style={{ top: "-60px" }}
-                                  frameBorder="0"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                  title={video.title}
-                                />
+                            <div className="relative w-full overflow-hidden group" style={{ paddingBottom: "56.25%" }}>
+                              {embedUrl && thumbnailUrl ? (
+                                <>
+                                  <img
+                                    src={thumbnailUrl}
+                                    alt={video.title}
+                                    className="absolute top-0 left-0 w-full h-full object-cover"
+                                    data-testid={`video-thumbnail-${video.id}`}
+                                  />
+                                  <button
+                                    onClick={handlePlayClick}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    data-testid={`play-button-${video.id}`}
+                                  >
+                                    <div className="w-20 h-20 rounded-full bg-blue-600 hover:bg-blue-700 hover:scale-110 flex items-center justify-center transition-all shadow-lg">
+                                      <Play className="w-10 h-10 text-white ml-1" fill="white" />
+                                    </div>
+                                  </button>
+                                </>
                               ) : (
                                 <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
