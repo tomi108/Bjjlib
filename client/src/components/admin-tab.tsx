@@ -208,11 +208,14 @@ export function AdminTab() {
                   allTags={allTags}
                   selectedTags={selectedTags}
                   onAddTag={addTag}
-                  placeholder="Type to search or add new tag..."
+                  placeholder="Type to search or create new tag..."
                   className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
                   testId="input-tag"
                   allowNewTags={true}
                 />
+                <p className="text-xs text-gray-400">
+                  Multi-word tags supported (e.g., "side control", "closed guard"). Press Enter to add.
+                </p>
                 
                 {selectedTags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
