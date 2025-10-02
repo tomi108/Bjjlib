@@ -26,6 +26,20 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   return null;
 }
 
+function getThumbnailUrl(url: string): string | null {
+  const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
+  if (youtubeMatch) {
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+  }
+
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) {
+    return `https://vumbnail.com/${vimeoMatch[1]}.jpg`;
+  }
+
+  return null;
+}
+
 function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
 }
