@@ -54,7 +54,6 @@ export default function Home() {
   const searchParams = new URLSearchParams(useSearch());
   const [, setLocation] = useLocation();
 
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
     const tagIds = searchParams.get("tags");
     return tagIds ? tagIds.split(",").map(Number).filter(n => !isNaN(n)) : [];
@@ -63,7 +62,6 @@ export default function Home() {
     const page = parseInt(searchParams.get("page") || "1");
     return isNaN(page) ? 1 : page;
   });
-  const [inputValue, setInputValue] = useState(searchQuery);
 
   const { data: adminStatus } = useQuery<{ isAdmin: boolean }>({
     queryKey: ["/api/admin/session"],
@@ -122,9 +120,8 @@ export default function Home() {
     }
   };
 
-  const updateUrl = (query: string, tags: number[], page: number) => {
+  const updateUrl = (tags: number[], page: number) => {
     const params = new URLSearchParams();
-    if (query) params.set("q", query);
     if (tags.length > 0) params.set("tags", tags.join(","));
     if (page > 1) params.set("page", page.toString());
     const newSearch = params.toString();
@@ -132,16 +129,15 @@ export default function Home() {
   };
 
   useEffect(() => {
-    updateUrl(searchQuery, selectedTagIds, currentPage);
-  }, [searchQuery, selectedTagIds, currentPage]);
+    updateUrl(selectedTagIds, currentPage);
+  }, [selectedTagIds, currentPage]);
 
   const { data: videosData, isLoading: videosLoading } = useQuery<{ videos: VideoWithTags[]; total: number }>({
-    queryKey: ["/api/videos", { page: currentPage, search: searchQuery, tagIds: selectedTagIds }],
+    queryKey: ["/api/videos", { page: currentPage, tagIds: selectedTagIds }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", currentPage.toString());
       params.set("limit", "20");
-      if (searchQuery) params.set("search", searchQuery);
       if (selectedTagIds.length > 0) params.set("tagIds", selectedTagIds.join(","));
 
       const response = await fetch(`/api/videos?${params}`);
@@ -200,20 +196,7 @@ export default function Home() {
     }
   };
 
-  const handleSearch = () => {
-    setSearchQuery(inputValue);
-    setCurrentPage(1);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
-
   const clearAll = () => {
-    setInputValue("");
-    setSearchQuery("");
     setSelectedTagIds([]);
     setCurrentPage(1);
   };
@@ -298,27 +281,6 @@ export default function Home() {
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <aside className="lg:col-span-1 space-y-6">
-                <div>
-                  <label htmlFor="search" className="block text-sm font-medium mb-2">
-                    Search by title
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="search"
-                      type="text"
-                      placeholder="Search..."
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
-                      data-testid="input-search"
-                    />
-                    <Button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700" data-testid="button-search">
-                      <Search className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Quick tag search
@@ -547,11 +509,11 @@ export default function Home() {
                     <VideoIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No videos found</h3>
                     <p className="text-sm text-gray-400 mb-6">
-                      {searchQuery || selectedTagIds.length > 0
-                        ? "Try adjusting your search or filters"
+                      {selectedTagIds.length > 0
+                        ? "Try adjusting your filters"
                         : "No videos have been added yet. Switch to Admin to add your first video."}
                     </p>
-                    {(searchQuery || selectedTagIds.length > 0) && (
+                    {selectedTagIds.length > 0 && (
                       <Button onClick={clearAll} className="bg-blue-600 hover:bg-blue-700">
                         Clear filters
                       </Button>
