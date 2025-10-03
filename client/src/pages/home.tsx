@@ -366,24 +366,19 @@ export default function Home() {
                 <div>
                   <h3 className="text-sm font-medium mb-2">Available tags</h3>
                   <div className="flex flex-wrap gap-2">
-                    {availableTags.map(tag => {
-                      const isSelected = selectedTagIds.includes(tag.id);
+                    {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).map(tag => {
                       return (
                         <button
                           key={tag.id}
                           onClick={() => toggleTag(tag.id)}
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-blue-600 hover:bg-blue-700 text-white"
-                              : "border border-gray-700 hover:bg-gray-800 text-gray-300"
-                          }`}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
                           data-testid={`tag-filter-${tag.id}`}
                         >
                           {tag.name}
                         </button>
                       );
                     })}
-                    {availableTags.length === 0 && selectedTagIds.length > 0 && (
+                    {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).length === 0 && selectedTagIds.length > 0 && (
                       <p className="text-sm text-gray-400">No co-occurring tags found</p>
                     )}
                   </div>
