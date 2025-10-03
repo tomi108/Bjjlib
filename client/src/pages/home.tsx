@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Plus } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
@@ -54,29 +53,28 @@ function isICloudUrl(url: string): boolean {
 }
 
 function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; currentTags: Tag[]; allTags: Tag[] }) {
-  const [selectedTagId, setSelectedTagId] = useState<string>("");
+  const [inputValue, setInputValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const { toast } = useToast();
   
   const availableTagsToAdd = allTags.filter(tag => !currentTags.some(ct => ct.id === tag.id));
   
+  const filteredSuggestions = availableTagsToAdd.filter(tag => 
+    tag.name.toLowerCase().includes(inputValue.toLowerCase())
+  );
+  
   const addTagMutation = useMutation({
-    mutationFn: async (tagId: number) => {
+    mutationFn: async (tagName: string) => {
       const currentTagNames = currentTags.map(t => t.name);
-      const tagToAdd = allTags.find(t => t.id === tagId);
-      if (!tagToAdd) throw new Error("Tag not found");
+      const updatedTags = [...currentTagNames, tagName];
       
-      const updatedTags = [...currentTagNames, tagToAdd.name];
-      
-      return apiRequest(`/api/videos/${videoId}`, {
-        method: "PUT",
-        body: JSON.stringify({ tags: updatedTags }),
-        headers: { "Content-Type": "application/json" }
-      });
+      return apiRequest("PUT", `/api/videos/${videoId}`, { tags: updatedTags });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
-      setSelectedTagId("");
+      setInputValue("");
+      setShowSuggestions(false);
       toast({
         title: "Tag added",
         description: "Tag has been added to the video successfully"
@@ -91,11 +89,8 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
     }
   });
   
-  const handleAddTag = (value: string) => {
-    if (!value) return;
-    setSelectedTagId(value);
-    const tagId = parseInt(value);
-    addTagMutation.mutate(tagId);
+  const handleSelectTag = (tagName: string) => {
+    addTagMutation.mutate(tagName);
   };
   
   if (availableTagsToAdd.length === 0) {
@@ -103,30 +98,40 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
   }
   
   return (
-    <div className="flex items-center gap-2">
-      <Select value={selectedTagId} onValueChange={handleAddTag} disabled={addTagMutation.isPending}>
-        <SelectTrigger 
-          className="h-7 text-xs bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-          data-testid={`select-add-tag-${videoId}`}
-        >
-          <div className="flex items-center gap-1">
-            <Plus className="w-3 h-3" />
-            <SelectValue placeholder="Add tag" />
-          </div>
-        </SelectTrigger>
-        <SelectContent className="bg-gray-800 border-gray-700">
-          {availableTagsToAdd.map(tag => (
-            <SelectItem 
-              key={tag.id} 
-              value={tag.id.toString()}
-              className="text-gray-300 focus:bg-gray-700 focus:text-white"
-              data-testid={`option-tag-${tag.id}`}
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Input
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            placeholder="Add tag..."
+            disabled={addTagMutation.isPending}
+            className="h-7 text-xs bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600 pr-8"
+            data-testid={`input-add-tag-${videoId}`}
+          />
+          <Plus className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+      
+      {showSuggestions && filteredSuggestions.length > 0 && inputValue && (
+        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto">
+          {filteredSuggestions.map(tag => (
+            <button
+              key={tag.id}
+              onClick={() => handleSelectTag(tag.name)}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+              data-testid={`suggestion-tag-${tag.id}`}
             >
               {tag.name}
-            </SelectItem>
+            </button>
           ))}
-        </SelectContent>
-      </Select>
+        </div>
+      )}
     </div>
   );
 }

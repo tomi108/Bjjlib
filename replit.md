@@ -14,10 +14,12 @@ This is a full-stack video library management application built with React, Expr
 - Login/Logout buttons conditionally displayed in the header based on authentication status
 
 **Quick Add Tag Feature:**
-- Added inline tag selector on video cards for admin users
+- Added inline tag input field on video cards for admin users
 - Admins can add tags directly from the video listing without opening a separate form
-- Dropdown appears below existing tags on each video card (only when admin is logged in)
+- Input field with autosuggestion appears below existing tags on each video card (only when admin is logged in)
+- As you type, tag suggestions appear filtered by your input
 - Automatically filters out tags that are already assigned to the video
+- Click a suggestion to instantly add the tag to the video
 - Provides toast notifications for successful tag additions
 - Updates video list and tag counts automatically after tag is added
 - Play button overlay reduced to 28px (one-third original size) for better visual balance
