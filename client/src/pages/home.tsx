@@ -229,7 +229,17 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold">Bjjlib</h1>
-                <p className="text-xs text-gray-400">BJJ Video Library of Bjj.sk (BJJ Slovakia)</p>
+                <p className="text-xs text-gray-400">
+                  Video Library of{" "}
+                  <a 
+                    href="https://bjj.sk" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 hover:underline"
+                  >
+                    Bjj.sk
+                  </a>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
