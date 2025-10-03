@@ -19,13 +19,13 @@ import {
 function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
-    const autoplayParam = autoplay ? '&autoplay=1&mute=1' : '';
+    const autoplayParam = autoplay ? '&autoplay=1' : '';
     return `https://www.youtube.com/embed/${youtubeMatch[1]}?modestbranding=1&rel=0&showinfo=0${autoplayParam}`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
   if (vimeoMatch) {
-    const autoplayParam = autoplay ? '&autoplay=1&muted=1' : '';
+    const autoplayParam = autoplay ? '&autoplay=1' : '';
     return `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0${autoplayParam}`;
   }
 
