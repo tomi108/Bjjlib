@@ -119,7 +119,7 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
       </div>
       
       {showSuggestions && filteredSuggestions.length > 0 && inputValue && (
-        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto">
+        <div className="absolute z-[9999] w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-xl max-h-40 overflow-y-auto">
           {filteredSuggestions.map(tag => (
             <button
               key={tag.id}
