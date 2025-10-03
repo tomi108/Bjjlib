@@ -5,7 +5,7 @@ import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Pencil } from "lucide-react";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { AdminTab } from "@/components/admin-tab";
 import {
@@ -472,7 +472,20 @@ export default function Home() {
                               )}
                             </div>
                             <CardContent className="p-4">
-                              <h3 className="font-semibold mb-2" data-testid={`video-title-${video.id}`}>{video.title}</h3>
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="font-semibold flex-1" data-testid={`video-title-${video.id}`}>{video.title}</h3>
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setLocation(`/edit/${video.id}`)}
+                                    className="ml-2 h-7 w-7 p-0 hover:bg-gray-800"
+                                    data-testid={`button-edit-${video.id}`}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
                               <div className="flex flex-wrap gap-1">
                                 {video.tags.map(tag => (
                                   <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300">
