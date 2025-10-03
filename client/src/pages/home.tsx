@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
@@ -55,6 +56,8 @@ function isICloudUrl(url: string): boolean {
 function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; currentTags: Tag[]; allTags: Tag[] }) {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   const availableTagsToAdd = allTags.filter(tag => !currentTags.some(ct => ct.id === tag.id));
@@ -62,6 +65,17 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
   const filteredSuggestions = availableTagsToAdd.filter(tag => 
     tag.name.toLowerCase().includes(inputValue.toLowerCase())
   );
+  
+  const updateDropdownPosition = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
   
   const addTagMutation = useMutation({
     mutationFn: async (tagName: string) => {
@@ -93,6 +107,12 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
     addTagMutation.mutate(tagName);
   };
   
+  useEffect(() => {
+    if (showSuggestions) {
+      updateDropdownPosition();
+    }
+  }, [showSuggestions]);
+  
   if (availableTagsToAdd.length === 0) {
     return null;
   }
@@ -102,12 +122,17 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Input
+            ref={inputRef}
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
               setShowSuggestions(true);
+              updateDropdownPosition();
             }}
-            onFocus={() => setShowSuggestions(true)}
+            onFocus={() => {
+              setShowSuggestions(true);
+              updateDropdownPosition();
+            }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder="Add tag..."
             disabled={addTagMutation.isPending}
@@ -118,8 +143,15 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
         </div>
       </div>
       
-      {showSuggestions && filteredSuggestions.length > 0 && inputValue && (
-        <div className="absolute z-[9999] w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-xl max-h-40 overflow-y-auto">
+      {showSuggestions && filteredSuggestions.length > 0 && inputValue && createPortal(
+        <div 
+          className="fixed bg-gray-800 border border-gray-700 rounded-md shadow-xl max-h-40 overflow-y-auto z-[9999]"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`
+          }}
+        >
           {filteredSuggestions.map(tag => (
             <button
               key={tag.id}
@@ -130,7 +162,8 @@ function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; cur
               {tag.name}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
