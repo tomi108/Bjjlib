@@ -279,90 +279,89 @@ export default function Home() {
           </div>
         )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-              <aside className="lg:col-span-1 space-y-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Quick tag search
-                  </label>
-                  <TagAutosuggest
-                    allTags={allTags}
-                    selectedTags={selectedTags.map(t => t.name)}
-                    onAddTag={addTagByName}
-                    placeholder="Search tags..."
-                    className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
-                    testId="input-browse-tag-search"
-                  />
-                </div>
+        <div className="space-y-6 mb-8">
+          <div className="max-w-md">
+            <label className="block text-sm font-medium mb-2">
+              Quick tag search
+            </label>
+            <TagAutosuggest
+              allTags={allTags}
+              selectedTags={selectedTags.map(t => t.name)}
+              onAddTag={addTagByName}
+              placeholder="Search tags..."
+              className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
+              testId="input-browse-tag-search"
+            />
+          </div>
 
-                {selectedTags.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Selected tags</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearAll}
-                        className="text-xs text-gray-400 hover:text-gray-100"
-                        data-testid="button-clear-all"
-                      >
-                        Clear all
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTags.map(tag => (
-                        <button
-                          key={tag.id}
-                          onClick={() => removeTag(tag.id)}
-                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors"
-                          data-testid={`selected-tag-${tag.id}`}
-                        >
-                          {tag.name}
-                          <X className="w-3 h-3" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+          {selectedTags.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Selected tags</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAll}
+                  className="text-xs text-gray-400 hover:text-gray-100"
+                  data-testid="button-clear-all"
+                >
+                  Clear all
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedTags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => removeTag(tag.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors"
+                    data-testid={`selected-tag-${tag.id}`}
+                  >
+                    {tag.name}
+                    <X className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Available tags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).map(tag => {
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => toggleTag(tag.id)}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
-                          data-testid={`tag-filter-${tag.id}`}
-                        >
-                          {tag.name}
-                        </button>
-                      );
-                    })}
-                    {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).length === 0 && selectedTagIds.length > 0 && (
-                      <p className="text-sm text-gray-400">No co-occurring tags found</p>
-                    )}
-                  </div>
-                </div>
-              </aside>
+          <div>
+            <h3 className="text-sm font-medium mb-2">Available tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).map(tag => {
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.id)}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
+                    data-testid={`tag-filter-${tag.id}`}
+                  >
+                    {tag.name}
+                  </button>
+                );
+              })}
+              {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).length === 0 && selectedTagIds.length > 0 && (
+                <p className="text-sm text-gray-400">No co-occurring tags found</p>
+              )}
+            </div>
+          </div>
+        </div>
 
-              <div className="lg:col-span-3">
-                {videosLoading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[...Array(4)].map((_, i) => (
-                      <Card key={i} className="bg-gray-900 border-gray-800">
-                        <div className="w-full h-48 bg-gray-800 animate-pulse" />
-                        <CardContent className="p-4 space-y-2">
-                          <div className="h-4 bg-gray-800 animate-pulse rounded" />
-                          <div className="h-3 bg-gray-800 animate-pulse rounded w-3/4" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : videos.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          {videosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="bg-gray-900 border-gray-800">
+                  <div className="w-full h-48 bg-gray-800 animate-pulse" />
+                  <CardContent className="p-4 space-y-2">
+                    <div className="h-4 bg-gray-800 animate-pulse rounded" />
+                    <div className="h-3 bg-gray-800 animate-pulse rounded w-3/4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : videos.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {videos.map(video => {
                         const embedUrl = getEmbedUrl(video.url);
                         const embedUrlWithAutoplay = getEmbedUrl(video.url, true);
@@ -473,10 +472,10 @@ export default function Home() {
                             </CardContent>
                           </Card>
                         );
-                      })}
-                    </div>
+                })}
+              </div>
 
-                    {totalPages > 1 && (
+              {totalPages > 1 && (
                       <div className="flex items-center justify-center gap-4 mt-8">
                         <Button
                           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -501,27 +500,26 @@ export default function Home() {
                           Next
                           <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-16">
-                    <VideoIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No videos found</h3>
-                    <p className="text-sm text-gray-400 mb-6">
-                      {selectedTagIds.length > 0
-                        ? "Try adjusting your filters"
-                        : "No videos have been added yet. Switch to Admin to add your first video."}
-                    </p>
-                    {selectedTagIds.length > 0 && (
-                      <Button onClick={clearAll} className="bg-blue-600 hover:bg-blue-700">
-                        Clear filters
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <VideoIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No videos found</h3>
+              <p className="text-sm text-gray-400 mb-6">
+                {selectedTagIds.length > 0
+                  ? "Try adjusting your filters"
+                  : "No videos have been added yet. Switch to Admin to add your first video."}
+              </p>
+              {selectedTagIds.length > 0 && (
+                <Button onClick={clearAll} className="bg-blue-600 hover:bg-blue-700">
+                  Clear filters
+                </Button>
+              )}
             </div>
+          )}
+        </div>
       </main>
 
       <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
