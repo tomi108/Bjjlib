@@ -4,6 +4,15 @@
 
 This is a full-stack video library management application built with React, Express, and PostgreSQL. The application allows users to organize, browse, and manage video content with tagging capabilities. It features a modern UI built with shadcn/ui components and follows a clean monorepo architecture with shared schemas between client and server.
 
+## Recent Changes (October 3, 2025)
+
+**Authentication UI Redesign:**
+- Removed tabbed navigation (Browse/Admin tabs) from the homepage
+- Video library content is now always visible to all users
+- Login functionality moved to a dialog modal accessed via header button
+- Admin features accessible through an "Admin Panel" button for logged-in users
+- Login/Logout buttons conditionally displayed in the header based on authentication status
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -22,10 +31,12 @@ Preferred communication style: Simple, everyday language.
 
 **Design Decisions:**
 - Component-based architecture with reusable UI components in `client/src/components/ui/`
-- Custom components for domain logic (`video-card`, `video-form`, `tag-manager`, `video-table`)
+- Custom components for domain logic (`video-card`, `video-form`, `tag-manager`, `video-table`, `admin-tab`)
 - Form validation using React Hook Form with Zod resolvers for type-safe form handling
 - Query client configured with infinite stale time to minimize unnecessary refetches
 - Path aliases configured for clean imports (`@/`, `@shared/`, `@assets/`)
+- Authentication state managed through React Query with cookie-based sessions
+- Admin features conditionally rendered based on session state
 
 ### Backend Architecture
 
@@ -37,11 +48,12 @@ Preferred communication style: Simple, everyday language.
 - In-memory storage implementation with interface pattern for easy swapping
 
 **Design Decisions:**
-- RESTful API design with conventional endpoints (`/api/videos`, `/api/tags`, `/api/health`)
+- RESTful API design with conventional endpoints (`/api/videos`, `/api/tags`, `/api/health`, `/api/admin/*`)
 - Storage abstraction through `IStorage` interface allows switching between in-memory and database implementations
 - Request/response logging middleware for API debugging
 - Schema validation using Zod schemas derived from Drizzle tables
 - Health check endpoint for monitoring application status
+- Cookie-based session management for admin authentication using httpOnly cookies
 
 ### Database Architecture
 
@@ -53,6 +65,7 @@ Preferred communication style: Simple, everyday language.
 **Schema Design:**
 - `videos` table: Stores video metadata (title, URL, description, tags array, timestamps)
 - `tags` table: Manages tag taxonomy with video counts
+- `admin_sessions` table: Stores admin session data for authentication
 - UUID primary keys generated via PostgreSQL's `gen_random_uuid()`
 - Array column type for video tags enabling many-to-many relationships without join tables
 - Automatic timestamp generation for creation dates
@@ -124,5 +137,25 @@ Preferred communication style: Simple, everyday language.
 ### Notes on Architecture
 - The application currently uses an in-memory storage implementation (`MemStorage` class) but is structured to easily switch to database-backed storage through the `IStorage` interface
 - Database configuration is present and ready for PostgreSQL integration via the Neon serverless driver
-- Session management infrastructure exists but is not actively used in the current implementation
+- Admin authentication uses cookie-based sessions with ADMIN_PASSWORD environment variable for security
 - The monorepo structure with shared schemas ensures type consistency between frontend and backend
+
+## Authentication System
+
+**Backend:**
+- Three endpoints: `/api/admin/login`, `/api/admin/logout`, `/api/admin/session`
+- Cookie-based session management using httpOnly cookies for security
+- Sessions stored in memory (via `IStorage` interface) with 24-hour expiration
+- Password validated against `ADMIN_PASSWORD` environment variable
+
+**Frontend:**
+- React Query fetches admin status on page load
+- Login dialog accessible via header button for non-authenticated users
+- Admin Panel button appears for authenticated admins to access management features
+- Logout button replaces login button after successful authentication
+- Full page reload after login/logout to refresh session state
+
+**Security Notes:**
+- ADMIN_PASSWORD must be configured in environment variables for authentication to work
+- Sessions use httpOnly cookies to prevent XSS attacks
+- Secure flag enabled for cookies in production environments
