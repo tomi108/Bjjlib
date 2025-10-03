@@ -102,11 +102,10 @@ export function TagAutosuggest({
             <button
               key={tag.id}
               onClick={() => handleSelectTag(tag.name)}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors flex items-center justify-between"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors"
               data-testid={`suggestion-${tag.name}`}
             >
               <span>{tag.name}</span>
-              <span className="text-xs text-gray-500">existing tag</span>
             </button>
           ))}
         </div>
