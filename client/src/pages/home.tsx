@@ -229,7 +229,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold">Bjjlib</h1>
-                <p className="text-xs text-gray-400">BJJ Video Library</p>
+                <p className="text-xs text-gray-400">BJJ Video Library of Bjjslovakia.sk</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
