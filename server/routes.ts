@@ -45,6 +45,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/videos", async (req, res) => {
     try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
       const validatedData = insertVideoSchema.parse(req.body);
       const video = await storage.createVideo(validatedData);
       res.status(201).json(video);
@@ -59,6 +72,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/videos/:id", async (req, res) => {
     try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
@@ -81,6 +107,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/videos/:id", async (req, res) => {
     try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
