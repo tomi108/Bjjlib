@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, useSearch } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,7 +223,7 @@ export default function Home() {
       <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" data-testid="link-home-logo">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <VideoIcon className="w-5 h-5 text-white" />
               </div>
@@ -231,17 +231,19 @@ export default function Home() {
                 <h1 className="text-xl font-bold">Bjjlib</h1>
                 <p className="text-xs text-gray-400">
                   Video Library of{" "}
-                  <a 
-                    href="https://bjj.sk" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 hover:underline"
+                  <span
+                    className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open('https://bjj.sk', '_blank', 'noopener,noreferrer');
+                    }}
                   >
                     Bjj.sk
-                  </a>
+                  </span>
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-2">
               {isAdmin && (
                 <Button
