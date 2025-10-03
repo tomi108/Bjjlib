@@ -1,5 +1,5 @@
-import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession, videos, tags, videoTags, adminSessions } from "@shared/schema";
-import { db } from "./db";
+import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession } from "@shared/schema";
+import { db, isPostgres, videos, tags, videoTags, adminSessions } from "./db";
 import { eq, sql, and, inArray, lt } from "drizzle-orm";
 
 export interface IStorage {
@@ -24,46 +24,95 @@ export interface IStorage {
   initializeDatabase(): Promise<void>;
 }
 
+function dbGet<T>(results: T[] | T | undefined): T | undefined {
+  if (!results) return undefined;
+  if (Array.isArray(results)) return results[0];
+  return results;
+}
+
+function dbAll<T>(results: T[] | T): T[] {
+  if (Array.isArray(results)) return results;
+  return [];
+}
+
 export class DbStorage implements IStorage {
   async initializeDatabase(): Promise<void> {
     try {
-      db.run(sql`
-        CREATE TABLE IF NOT EXISTS videos (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          url TEXT NOT NULL,
-          date_added INTEGER NOT NULL DEFAULT (unixepoch())
-        )
-      `);
+      if (isPostgres) {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS videos (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            date_added TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `);
 
-      db.run(sql`
-        CREATE TABLE IF NOT EXISTS tags (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL UNIQUE
-        )
-      `);
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS tags (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+          )
+        `);
 
-      db.run(sql`
-        CREATE TABLE IF NOT EXISTS video_tags (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          video_id INTEGER NOT NULL,
-          tag_id INTEGER NOT NULL,
-          FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
-          FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
-          UNIQUE(video_id, tag_id)
-        )
-      `);
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS video_tags (
+            id SERIAL PRIMARY KEY,
+            video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+            tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(video_id, tag_id)
+          )
+        `);
 
-      db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_video_id ON video_tags(video_id)`);
-      db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_tag_id ON video_tags(tag_id)`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_video_id ON video_tags(video_id)`);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_tag_id ON video_tags(tag_id)`);
 
-      db.run(sql`
-        CREATE TABLE IF NOT EXISTS admin_sessions (
-          id TEXT PRIMARY KEY,
-          created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-          expires_at INTEGER NOT NULL
-        )
-      `);
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS admin_sessions (
+            id VARCHAR PRIMARY KEY,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMP NOT NULL
+          )
+        `);
+      } else {
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            date_added INTEGER NOT NULL DEFAULT (unixepoch())
+          )
+        `);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+          )
+        `);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS video_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+            UNIQUE(video_id, tag_id)
+          )
+        `);
+
+        await db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_video_id ON video_tags(video_id)`);
+        await db.run(sql`CREATE INDEX IF NOT EXISTS idx_video_tags_tag_id ON video_tags(tag_id)`);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS admin_sessions (
+            id TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            expires_at INTEGER NOT NULL
+          )
+        `);
+      }
 
       const defaultTags = ['fundamentals', 'guard', 'submissions', 'sweeps', 'takedowns'];
       for (const tagName of defaultTags) {
@@ -95,7 +144,8 @@ export class DbStorage implements IStorage {
         .groupBy(videoTags.videoId)
         .having(sql`COUNT(DISTINCT ${videoTags.tagId}) = ${tagIds.length}`);
 
-      const videoIds = videoIdsSubquery.all().map((v: any) => v.videoId);
+      const videoIdsResults = isPostgres ? await videoIdsSubquery : videoIdsSubquery.all();
+      const videoIds = dbAll(videoIdsResults).map((v: any) => v.videoId);
       
       if (videoIds.length === 0) {
         return { videos: [], total: 0 };
@@ -104,29 +154,33 @@ export class DbStorage implements IStorage {
       query = query.where(inArray(videos.id, videoIds));
     }
 
-    const allResults = query.orderBy(sql`${videos.dateAdded} DESC`).all();
-    const total = allResults.length;
+    const queryWithOrder = query.orderBy(sql`${videos.dateAdded} DESC`);
+    const allResults = isPostgres ? await queryWithOrder : queryWithOrder.all();
+    const allResultsArray = dbAll(allResults);
+    const total = allResultsArray.length;
     
-    const paginatedResults = allResults.slice(offset, offset + limit);
+    const paginatedResults = allResultsArray.slice(offset, offset + limit);
 
     const videosWithTags: VideoWithTags[] = [];
     for (const video of paginatedResults) {
-      const videoTagsData = db
+      const videoTagsQuery = db
         .select({ tagId: videoTags.tagId })
         .from(videoTags)
-        .where(eq(videoTags.videoId, video.id))
-        .all();
-
-      const tagIds = videoTagsData.map((vt: any) => vt.tagId);
+        .where(eq(videoTags.videoId, video.id));
+      
+      const videoTagsData = isPostgres ? await videoTagsQuery : videoTagsQuery.all();
+      const tagIds = dbAll(videoTagsData).map((vt: any) => vt.tagId);
       
       let videoTagsList: Tag[] = [];
       if (tagIds.length > 0) {
-        videoTagsList = db
+        const tagsQuery = db
           .select()
           .from(tags)
           .where(inArray(tags.id, tagIds))
-          .orderBy(tags.name)
-          .all();
+          .orderBy(tags.name);
+        
+        videoTagsList = isPostgres ? await tagsQuery : tagsQuery.all();
+        videoTagsList = dbAll(videoTagsList);
       }
 
       videosWithTags.push({
@@ -139,25 +193,28 @@ export class DbStorage implements IStorage {
   }
 
   async getVideo(id: number): Promise<VideoWithTags | undefined> {
-    const video = db.select().from(videos).where(eq(videos.id, id)).get();
+    const videoQuery = db.select().from(videos).where(eq(videos.id, id));
+    const video = dbGet(isPostgres ? await videoQuery : videoQuery.get());
     if (!video) return undefined;
 
-    const videoTagsData = db
+    const videoTagsQuery = db
       .select({ tagId: videoTags.tagId })
       .from(videoTags)
-      .where(eq(videoTags.videoId, id))
-      .all();
-
-    const tagIds = videoTagsData.map((vt: any) => vt.tagId);
+      .where(eq(videoTags.videoId, id));
+    
+    const videoTagsData = isPostgres ? await videoTagsQuery : videoTagsQuery.all();
+    const tagIds = dbAll(videoTagsData).map((vt: any) => vt.tagId);
     
     let videoTagsList: Tag[] = [];
     if (tagIds.length > 0) {
-      videoTagsList = db
+      const tagsQuery = db
         .select()
         .from(tags)
         .where(inArray(tags.id, tagIds))
-        .orderBy(tags.name)
-        .all();
+        .orderBy(tags.name);
+      
+      videoTagsList = isPostgres ? await tagsQuery : tagsQuery.all();
+      videoTagsList = dbAll(videoTagsList);
     }
 
     return {
@@ -169,7 +226,8 @@ export class DbStorage implements IStorage {
   async createVideo(insertVideo: InsertVideo): Promise<VideoWithTags> {
     const { tags: tagNames, ...videoData } = insertVideo;
 
-    const result = db.insert(videos).values(videoData).returning().get();
+    const result = dbGet(await db.insert(videos).values(videoData).returning());
+    if (!result) throw new Error("Failed to create video");
 
     if (tagNames && tagNames.length > 0) {
       for (const tagName of tagNames) {
@@ -179,12 +237,18 @@ export class DbStorage implements IStorage {
         const tag = await this.createOrGetTag(normalizedName);
         
         try {
-          db.insert(videoTags).values({
-            videoId: result.id,
-            tagId: tag.id,
-          }).run();
+          if (isPostgres) {
+            await db.insert(videoTags).values({
+              videoId: result.id,
+              tagId: tag.id,
+            });
+          } else {
+            db.insert(videoTags).values({
+              videoId: result.id,
+              tagId: tag.id,
+            }).run();
+          }
         } catch (error) {
-          // Ignore duplicate entries
         }
       }
     }
@@ -196,12 +260,16 @@ export class DbStorage implements IStorage {
     const { tags: tagNames, ...videoUpdates } = updates;
 
     if (Object.keys(videoUpdates).length > 0) {
-      const result = db.update(videos).set(videoUpdates).where(eq(videos.id, id)).returning().get();
+      const result = dbGet(await db.update(videos).set(videoUpdates).where(eq(videos.id, id)).returning());
       if (!result) return undefined;
     }
 
     if (tagNames) {
-      db.delete(videoTags).where(eq(videoTags.videoId, id)).run();
+      if (isPostgres) {
+        await db.delete(videoTags).where(eq(videoTags.videoId, id));
+      } else {
+        db.delete(videoTags).where(eq(videoTags.videoId, id)).run();
+      }
 
       for (const tagName of tagNames) {
         const normalizedName = tagName.toLowerCase().trim();
@@ -210,12 +278,18 @@ export class DbStorage implements IStorage {
         const tag = await this.createOrGetTag(normalizedName);
         
         try {
-          db.insert(videoTags).values({
-            videoId: id,
-            tagId: tag.id,
-          }).run();
+          if (isPostgres) {
+            await db.insert(videoTags).values({
+              videoId: id,
+              tagId: tag.id,
+            });
+          } else {
+            db.insert(videoTags).values({
+              videoId: id,
+              tagId: tag.id,
+            }).run();
+          }
         } catch (error) {
-          // Ignore duplicate entries
         }
       }
     }
@@ -224,27 +298,29 @@ export class DbStorage implements IStorage {
   }
 
   async deleteVideo(id: number): Promise<boolean> {
-    const result = db.delete(videos).where(eq(videos.id, id)).returning().get();
+    const result = dbGet(await db.delete(videos).where(eq(videos.id, id)).returning());
     return !!result;
   }
 
   async getAllTags(): Promise<Tag[]> {
-    const tagsWithVideos = db
+    const tagsQuery = db
       .selectDistinct({ id: tags.id, name: tags.name })
       .from(tags)
       .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
-      .orderBy(tags.name)
-      .all();
+      .orderBy(tags.name);
     
-    return tagsWithVideos;
+    const tagsWithVideos = isPostgres ? await tagsQuery : tagsQuery.all();
+    return dbAll(tagsWithVideos);
   }
 
   async getTag(id: number): Promise<Tag | undefined> {
-    return db.select().from(tags).where(eq(tags.id, id)).get();
+    const query = db.select().from(tags).where(eq(tags.id, id));
+    return dbGet(isPostgres ? await query : query.get());
   }
 
   async getTagByName(name: string): Promise<Tag | undefined> {
-    return db.select().from(tags).where(eq(tags.name, name)).get();
+    const query = db.select().from(tags).where(eq(tags.name, name));
+    return dbGet(isPostgres ? await query : query.get());
   }
 
   async createOrGetTag(name: string): Promise<Tag> {
@@ -252,7 +328,9 @@ export class DbStorage implements IStorage {
     const existing = await this.getTagByName(normalizedName);
     if (existing) return existing;
 
-    return db.insert(tags).values({ name: normalizedName }).returning().get();
+    const result = dbGet(await db.insert(tags).values({ name: normalizedName }).returning());
+    if (!result) throw new Error("Failed to create tag");
+    return result;
   }
 
   async getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]> {
@@ -260,48 +338,56 @@ export class DbStorage implements IStorage {
       return this.getAllTags();
     }
 
-    const videoIdsWithAllTags = db
+    const videoIdsQuery = db
       .select({ videoId: videoTags.videoId })
       .from(videoTags)
       .where(inArray(videoTags.tagId, selectedTagIds))
       .groupBy(videoTags.videoId)
-      .having(sql`COUNT(DISTINCT ${videoTags.tagId}) = ${selectedTagIds.length}`)
-      .all()
-      .map((v: any) => v.videoId);
+      .having(sql`COUNT(DISTINCT ${videoTags.tagId}) = ${selectedTagIds.length}`);
+    
+    const videoIdsResults = isPostgres ? await videoIdsQuery : videoIdsQuery.all();
+    const videoIdsWithAllTags = dbAll(videoIdsResults).map((v: any) => v.videoId);
 
     if (videoIdsWithAllTags.length === 0) {
       return [];
     }
 
-    const coOccurringTagIds = db
+    const coOccurringTagIdsQuery = db
       .select({ tagId: videoTags.tagId })
       .from(videoTags)
       .where(inArray(videoTags.videoId, videoIdsWithAllTags))
-      .groupBy(videoTags.tagId)
-      .all()
-      .map((v: any) => v.tagId);
+      .groupBy(videoTags.tagId);
+    
+    const coOccurringTagIdsResults = isPostgres ? await coOccurringTagIdsQuery : coOccurringTagIdsQuery.all();
+    const coOccurringTagIds = dbAll(coOccurringTagIdsResults).map((v: any) => v.tagId);
 
     if (coOccurringTagIds.length === 0) {
       return [];
     }
 
-    return db
+    const tagsQuery = db
       .select()
       .from(tags)
       .where(inArray(tags.id, coOccurringTagIds))
-      .orderBy(tags.name)
-      .all();
+      .orderBy(tags.name);
+    
+    const result = isPostgres ? await tagsQuery : tagsQuery.all();
+    return dbAll(result);
   }
 
   async createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession> {
-    return db.insert(adminSessions).values({
+    const result = dbGet(await db.insert(adminSessions).values({
       id: sessionId,
       expiresAt,
-    }).returning().get();
+    }).returning());
+    
+    if (!result) throw new Error("Failed to create session");
+    return result;
   }
 
   async getAdminSession(sessionId: string): Promise<AdminSession | undefined> {
-    const session = db.select().from(adminSessions).where(eq(adminSessions.id, sessionId)).get();
+    const query = db.select().from(adminSessions).where(eq(adminSessions.id, sessionId));
+    const session = dbGet(isPostgres ? await query : query.get());
     if (!session) return undefined;
     
     if (new Date(session.expiresAt) < new Date()) {
@@ -313,16 +399,18 @@ export class DbStorage implements IStorage {
   }
 
   async deleteAdminSession(sessionId: string): Promise<boolean> {
-    const result = db.delete(adminSessions).where(eq(adminSessions.id, sessionId)).returning().get();
+    const result = dbGet(await db.delete(adminSessions).where(eq(adminSessions.id, sessionId)).returning());
     return !!result;
   }
 
   async cleanupExpiredSessions(): Promise<void> {
     const now = new Date();
-    db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run();
+    if (isPostgres) {
+      await db.delete(adminSessions).where(lt(adminSessions.expiresAt, now));
+    } else {
+      db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run();
+    }
   }
 }
 
 export const storage = new DbStorage();
-
-await storage.initializeDatabase();

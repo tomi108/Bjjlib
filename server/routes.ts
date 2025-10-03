@@ -5,6 +5,8 @@ import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  await storage.initializeDatabase();
+  
   app.get("/api/health", (_req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
   });

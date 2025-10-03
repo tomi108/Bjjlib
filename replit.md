@@ -6,6 +6,23 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes (October 3, 2025)
 
+**🔴 CRITICAL DATABASE FIX - Production Data Loss Issue Resolved:**
+- **Problem**: Application was using SQLite file storage in both development and production
+- **Impact**: Railway deployments created fresh database on each deploy, causing complete data loss
+- **Solution**: Implemented multi-database support:
+  - **Development (Replit)**: Uses SQLite (`bjjlib.db` file) for fast local development
+  - **Production (Railway)**: Uses PostgreSQL via DATABASE_URL (persistent, scalable storage)
+- **Technical Details**:
+  - Added dual schema support in `shared/schema.ts` (SQLite + PostgreSQL table definitions)
+  - Updated `server/db.ts` to detect environment and select appropriate database driver
+  - Refactored `server/storage.ts` to use dialect-neutral Drizzle ORM methods
+  - Database selection based on `NODE_ENV=production` + `DATABASE_URL` presence
+- **Deployment**: Push to GitHub → Railway auto-deploys with PostgreSQL → Data persists ✅
+
+**Admin Panel Edit Button:**
+- Added edit button (pencil icon) to Admin Panel video table for quick access to edit page
+- Complements existing edit buttons on video cards for improved workflow
+
 **Authentication UI Redesign:**
 - Removed tabbed navigation (Browse/Admin tabs) from the homepage
 - Video library content is now always visible to all users
