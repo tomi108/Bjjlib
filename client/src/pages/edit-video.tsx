@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
-import { ArrowLeft, Save, Loader2, X } from "lucide-react";
+import { ArrowLeft, Save, Loader2, X, Video as VideoIcon } from "lucide-react";
 
 export default function EditVideo() {
   const [, params] = useRoute("/edit/:id");
@@ -142,6 +142,34 @@ export default function EditVideo() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
+      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" data-testid="link-home-logo">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <VideoIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Bjjlib</h1>
+                <p className="text-xs text-gray-400">
+                  Video Library of{" "}
+                  <span
+                    className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open('https://bjj.sk', '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    Bjj.sk
+                  </span>
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="mb-6">
           <Button
