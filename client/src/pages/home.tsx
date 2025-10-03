@@ -223,7 +223,14 @@ export default function Home() {
       <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" data-testid="link-home-logo">
+            <div
+              onClick={() => {
+                setShowAdminPanel(false);
+                setLocation('/');
+              }}
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              data-testid="link-home-logo"
+            >
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <VideoIcon className="w-5 h-5 text-white" />
               </div>
@@ -243,7 +250,7 @@ export default function Home() {
                   </span>
                 </p>
               </div>
-            </Link>
+            </div>
             <div className="flex items-center gap-2">
               {isAdmin && (
                 <Button
