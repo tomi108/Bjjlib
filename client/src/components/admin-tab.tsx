@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
-import { Trash2, X, VideoIcon, Loader2 } from "lucide-react";
+import { Trash2, X, VideoIcon, Loader2, Pencil } from "lucide-react";
+import { Link } from "wouter";
 
 async function fetchYouTubeTitle(url: string): Promise<string | null> {
   try {
@@ -408,36 +409,48 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                        <div className="flex justify-end gap-1">
+                          <Link href={`/edit/${video.id}`}>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-gray-400 hover:text-red-500"
-                              data-testid={`button-delete-video-${video.id}`}
+                              className="text-gray-400 hover:text-blue-500"
+                              data-testid={`button-edit-video-${video.id}`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-gray-900 border-gray-800">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Video</AlertDialogTitle>
-                              <AlertDialogDescription className="text-gray-400">
-                                Are you sure you want to delete "{video.title}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="border-gray-700 hover:bg-gray-800">Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteVideoMutation.mutate(video.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                                data-testid={`button-confirm-delete-video-${video.id}`}
+                          </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-red-500"
+                                data-testid={`button-delete-video-${video.id}`}
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-gray-900 border-gray-800">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Video</AlertDialogTitle>
+                                <AlertDialogDescription className="text-gray-400">
+                                  Are you sure you want to delete "{video.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="border-gray-700 hover:bg-gray-800">Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteVideoMutation.mutate(video.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                  data-testid={`button-confirm-delete-video-${video.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
