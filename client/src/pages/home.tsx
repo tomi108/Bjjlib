@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { AdminTab } from "@/components/admin-tab";
 import {
@@ -48,6 +51,84 @@ function getThumbnailUrl(url: string): string | null {
 
 function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
+}
+
+function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; currentTags: Tag[]; allTags: Tag[] }) {
+  const [selectedTagId, setSelectedTagId] = useState<string>("");
+  const { toast } = useToast();
+  
+  const availableTagsToAdd = allTags.filter(tag => !currentTags.some(ct => ct.id === tag.id));
+  
+  const addTagMutation = useMutation({
+    mutationFn: async (tagId: number) => {
+      const currentTagNames = currentTags.map(t => t.name);
+      const tagToAdd = allTags.find(t => t.id === tagId);
+      if (!tagToAdd) throw new Error("Tag not found");
+      
+      const updatedTags = [...currentTagNames, tagToAdd.name];
+      
+      return apiRequest(`/api/videos/${videoId}`, {
+        method: "PUT",
+        body: JSON.stringify({ tags: updatedTags }),
+        headers: { "Content-Type": "application/json" }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+      setSelectedTagId("");
+      toast({
+        title: "Tag added",
+        description: "Tag has been added to the video successfully"
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add tag",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const handleAddTag = (value: string) => {
+    if (!value) return;
+    setSelectedTagId(value);
+    const tagId = parseInt(value);
+    addTagMutation.mutate(tagId);
+  };
+  
+  if (availableTagsToAdd.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Select value={selectedTagId} onValueChange={handleAddTag} disabled={addTagMutation.isPending}>
+        <SelectTrigger 
+          className="h-7 text-xs bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+          data-testid={`select-add-tag-${videoId}`}
+        >
+          <div className="flex items-center gap-1">
+            <Plus className="w-3 h-3" />
+            <SelectValue placeholder="Add tag" />
+          </div>
+        </SelectTrigger>
+        <SelectContent className="bg-gray-800 border-gray-700">
+          {availableTagsToAdd.map(tag => (
+            <SelectItem 
+              key={tag.id} 
+              value={tag.id.toString()}
+              className="text-gray-300 focus:bg-gray-700 focus:text-white"
+              data-testid={`option-tag-${tag.id}`}
+            >
+              {tag.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -473,13 +554,16 @@ export default function Home() {
                             </div>
                             <CardContent className="p-4">
                               <h3 className="font-semibold mb-2" data-testid={`video-title-${video.id}`}>{video.title}</h3>
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex flex-wrap gap-1 mb-2">
                                 {video.tags.map(tag => (
                                   <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300">
                                     {tag.name}
                                   </span>
                                 ))}
                               </div>
+                              {isAdmin && (
+                                <AddTagToVideo videoId={video.id} currentTags={video.tags} allTags={allTags} />
+                              )}
                             </CardContent>
                           </Card>
                         );
