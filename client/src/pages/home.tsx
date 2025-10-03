@@ -258,10 +258,10 @@ export default function Home() {
               ) : (
                 <Button
                   onClick={() => setShowLoginDialog(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-[10px] h-6 px-2 py-0 min-w-0"
+                  className="bg-blue-600 hover:bg-blue-700"
                   data-testid="button-login"
                 >
-                  <LogIn className="w-2.5 h-2.5 mr-0.5" />
+                  <LogIn className="w-4 h-4 mr-2" />
                   Login
                 </Button>
               )}
@@ -431,8 +431,8 @@ export default function Home() {
                                     className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
                                     data-testid={`play-button-${video.id}`}
                                   >
-                                    <div className="w-20 h-20 rounded-full bg-blue-600 hover:bg-blue-700 hover:scale-110 flex items-center justify-center transition-all shadow-lg">
-                                      <Play className="w-10 h-10 text-white ml-1" fill="white" />
+                                    <div className="w-7 h-7 rounded-full bg-blue-600 hover:bg-blue-700 hover:scale-110 flex items-center justify-center transition-all shadow-lg">
+                                      <Play className="w-3.5 h-3.5 text-white ml-0.5" fill="white" />
                                     </div>
                                   </button>
                                 </>
