@@ -5,8 +5,9 @@ import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings } from "lucide-react";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
+import { AdminTab } from "@/components/admin-tab";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,7 @@ export default function Home() {
 
   const isAdmin = adminStatus?.isAdmin ?? false;
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -230,7 +232,18 @@ export default function Home() {
                 <p className="text-xs text-gray-400">BJJ Video Library</p>
               </div>
             </div>
-            <div>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Button
+                  onClick={() => setShowAdminPanel(!showAdminPanel)}
+                  variant="outline"
+                  className="border-gray-700 hover:bg-gray-800"
+                  data-testid="button-admin-panel"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Admin Panel
+                </Button>
+              )}
               {isAdmin ? (
                 <Button
                   onClick={handleLogout}
@@ -258,7 +271,13 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {isAdmin && showAdminPanel && (
+          <div className="mb-8">
+            <AdminTab isAdmin={isAdmin} />
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <aside className="lg:col-span-1 space-y-6">
                 <div>
                   <label htmlFor="search" className="block text-sm font-medium mb-2">
