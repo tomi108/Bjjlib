@@ -4,11 +4,16 @@ import { useLocation, useSearch } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play } from "lucide-react";
-import { AdminTab } from "@/components/admin-tab";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut } from "lucide-react";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
@@ -59,25 +64,61 @@ export default function Home() {
   });
   const [inputValue, setInputValue] = useState(searchQuery);
 
-  const { data: adminStatus, status: adminStatusQueryStatus } = useQuery<{ isAdmin: boolean }>({
+  const { data: adminStatus } = useQuery<{ isAdmin: boolean }>({
     queryKey: ["/api/admin/session"],
   });
 
   const isAdmin = adminStatus?.isAdmin ?? false;
-  const adminStatusResolved = adminStatusQueryStatus === 'success' || adminStatusQueryStatus === 'error';
-  const [activeTab, setActiveTab] = useState<string>("");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    if (!adminStatusResolved) return;
-    
-    if (activeTab === "") {
-      setActiveTab(isAdmin ? "browse" : "admin");
-    } else if (!isAdmin && activeTab === "browse") {
-      setActiveTab("admin");
+  const handleLogin = async () => {
+    if (!loginPassword) {
+      setLoginError("Password is required");
+      return;
     }
-  }, [isAdmin, activeTab, adminStatusResolved]);
 
-  const effectiveActiveTab = !isAdmin && activeTab === "browse" ? "admin" : activeTab;
+    setIsLoggingIn(true);
+    setLoginError("");
+
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+
+      if (response.ok) {
+        setShowLoginDialog(false);
+        setLoginPassword("");
+        window.location.reload();
+      } else {
+        setLoginError("Invalid password");
+      }
+    } catch (error) {
+      setLoginError("Login failed. Please try again.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+      });
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const updateUrl = (query: string, tags: number[], page: number) => {
     const params = new URLSearchParams();
@@ -189,31 +230,34 @@ export default function Home() {
                 <p className="text-xs text-gray-400">BJJ Video Library</p>
               </div>
             </div>
+            <div>
+              {isAdmin ? (
+                <Button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  variant="outline"
+                  className="border-gray-700 hover:bg-gray-800"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {isLoggingOut ? "Logging out..." : "Logout"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setShowLoginDialog(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-login"
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!adminStatusResolved || effectiveActiveTab === "" ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : (
-          <Tabs value={effectiveActiveTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} max-w-md bg-gray-900 border border-gray-800`}>
-              {isAdmin && (
-                <TabsTrigger value="browse" className="data-[state=active]:bg-blue-600" data-testid="tab-browse">
-                  Browse
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="admin" className="data-[state=active]:bg-blue-600" data-testid="tab-admin">
-                Admin
-              </TabsTrigger>
-            </TabsList>
-
-          <>
-            {isAdmin && (
-              <TabsContent value="browse" className="mt-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <aside className="lg:col-span-1 space-y-6">
                 <div>
@@ -469,16 +513,48 @@ export default function Home() {
                 )}
               </div>
             </div>
-          </TabsContent>
-            )}
-
-            <TabsContent value="admin" className="mt-8">
-              <AdminTab isAdmin={isAdmin} />
-            </TabsContent>
-          </>
-        </Tabs>
-        )}
       </main>
+
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-gray-100">
+          <DialogHeader>
+            <DialogTitle>Admin Login</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Enter the admin password to access admin features
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-2">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter admin password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+                className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+                data-testid="input-password"
+              />
+            </div>
+            {loginError && (
+              <p className="text-sm text-red-500" data-testid="text-login-error">
+                {loginError}
+              </p>
+            )}
+            <Button
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              data-testid="button-submit-login"
+            >
+              {isLoggingIn ? "Logging in..." : "Login"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
