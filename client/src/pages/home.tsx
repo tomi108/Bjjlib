@@ -1,14 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { VideoWithTags, Tag } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Plus } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings } from "lucide-react";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { AdminTab } from "@/components/admin-tab";
 import {
@@ -51,122 +48,6 @@ function getThumbnailUrl(url: string): string | null {
 
 function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
-}
-
-function AddTagToVideo({ videoId, currentTags, allTags }: { videoId: number; currentTags: Tag[]; allTags: Tag[] }) {
-  const [inputValue, setInputValue] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-  
-  const availableTagsToAdd = allTags.filter(tag => !currentTags.some(ct => ct.id === tag.id));
-  
-  const filteredSuggestions = availableTagsToAdd.filter(tag => 
-    tag.name.toLowerCase().includes(inputValue.toLowerCase())
-  );
-  
-  const updateDropdownPosition = () => {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
-    }
-  };
-  
-  const addTagMutation = useMutation({
-    mutationFn: async (tagName: string) => {
-      const currentTagNames = currentTags.map(t => t.name);
-      const updatedTags = [...currentTagNames, tagName];
-      
-      return apiRequest("PUT", `/api/videos/${videoId}`, { tags: updatedTags });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
-      setInputValue("");
-      setShowSuggestions(false);
-      toast({
-        title: "Tag added",
-        description: "Tag has been added to the video successfully"
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add tag",
-        variant: "destructive"
-      });
-    }
-  });
-  
-  const handleSelectTag = (tagName: string) => {
-    addTagMutation.mutate(tagName);
-  };
-  
-  useEffect(() => {
-    if (showSuggestions) {
-      updateDropdownPosition();
-    }
-  }, [showSuggestions]);
-  
-  if (availableTagsToAdd.length === 0) {
-    return null;
-  }
-  
-  return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => {
-              setInputValue(e.target.value);
-              setShowSuggestions(true);
-              updateDropdownPosition();
-            }}
-            onFocus={() => {
-              setShowSuggestions(true);
-              updateDropdownPosition();
-            }}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            placeholder="Add tag..."
-            disabled={addTagMutation.isPending}
-            className="h-7 text-xs bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600 pr-8"
-            data-testid={`input-add-tag-${videoId}`}
-          />
-          <Plus className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
-      </div>
-      
-      {showSuggestions && filteredSuggestions.length > 0 && inputValue && createPortal(
-        <div 
-          className="fixed bg-gray-800 border border-gray-700 rounded-md shadow-xl max-h-40 overflow-y-auto z-[9999]"
-          style={{
-            top: `${dropdownPosition.top}px`,
-            left: `${dropdownPosition.left}px`,
-            width: `${dropdownPosition.width}px`
-          }}
-        >
-          {filteredSuggestions.map(tag => (
-            <button
-              key={tag.id}
-              onClick={() => handleSelectTag(tag.name)}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-              data-testid={`suggestion-tag-${tag.id}`}
-            >
-              {tag.name}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
-  );
 }
 
 export default function Home() {
@@ -592,16 +473,13 @@ export default function Home() {
                             </div>
                             <CardContent className="p-4">
                               <h3 className="font-semibold mb-2" data-testid={`video-title-${video.id}`}>{video.title}</h3>
-                              <div className="flex flex-wrap gap-1 mb-2">
+                              <div className="flex flex-wrap gap-1">
                                 {video.tags.map(tag => (
                                   <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300">
                                     {tag.name}
                                   </span>
                                 ))}
                               </div>
-                              {isAdmin && (
-                                <AddTagToVideo videoId={video.id} currentTags={video.tags} allTags={allTags} />
-                              )}
                             </CardContent>
                           </Card>
                         );
