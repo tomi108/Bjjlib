@@ -243,7 +243,7 @@ export default function Home() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.open('https://bjj.sk', '_blank', 'noopener,noreferrer');
+                      window.open('http://www.bjj.sk/sk/Uvod', '_blank', 'noopener,noreferrer');
                     }}
                   >
                     Bjj.sk
