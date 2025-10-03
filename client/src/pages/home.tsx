@@ -258,11 +258,10 @@ export default function Home() {
               ) : (
                 <Button
                   onClick={() => setShowLoginDialog(true)}
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-xs px-2 py-1"
+                  className="bg-blue-600 hover:bg-blue-700 text-[10px] h-6 px-2 py-0 min-w-0"
                   data-testid="button-login"
                 >
-                  <LogIn className="w-3 h-3 mr-1" />
+                  <LogIn className="w-2.5 h-2.5 mr-0.5" />
                   Login
                 </Button>
               )}
