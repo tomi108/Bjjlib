@@ -13,6 +13,14 @@ This is a full-stack video library management application built with React, Expr
 - Admin features accessible through an "Admin Panel" button for logged-in users
 - Login/Logout buttons conditionally displayed in the header based on authentication status
 
+**Per-Video Edit Functionality:**
+- Added edit button (pencil icon) to each video card, visible only to logged-in admins
+- Clicking edit button navigates to dedicated edit page at `/edit/:id`
+- Edit page allows admins to modify video title and manage tags (add/remove)
+- Video URL is displayed but non-editable for data integrity
+- All video mutation endpoints (POST, PUT, DELETE) now require admin authentication
+- Unauthorized edit attempts return 401 status with appropriate error messages
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
