@@ -243,6 +243,10 @@ export default function EditVideo() {
                     allTags={allTags}
                     selectedTags={selectedTags}
                     onAddTag={addTag}
+                    allowNewTags={true}
+                    placeholder="Add tags..."
+                    className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+                    testId="input-edit-tag-search"
                   />
                 </div>
 
