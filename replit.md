@@ -6,14 +6,19 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
-**October 5, 2025 - Video Duration Overlay:**
+**October 5, 2025 - Automatic Video Duration from YouTube API:**
 - Added optional `duration` field to videos table (TEXT type for both SQLite and PostgreSQL)
-- Duration input added to both Add Video and Edit Video forms
+- **Automatic duration fetching**: When adding a YouTube video, duration is automatically retrieved from YouTube Data API v3
+- Created `server/youtube.ts` utility module:
+  - `getYouTubeVideoId()`: Extracts video ID from various YouTube URL formats
+  - `formatYouTubeDuration()`: Converts ISO 8601 duration (PT3M34S) to human-readable format (3:34)
+  - `fetchYouTubeDuration()`: Fetches video metadata from YouTube API
+- Supports all YouTube URL formats: regular videos, Shorts, youtu.be links
 - Duration format: MM:SS or H:MM:SS (e.g., "5:23" or "1:15:30")
 - Duration displays as overlay at bottom right of video thumbnails
 - Styled with semi-transparent black background (`bg-black/80`) and white text
-- Only appears when video has duration value set
-- Tested and verified working with visual confirmation
+- Requires `YOUTUBE_API_KEY` environment variable (YouTube Data API v3 key)
+- Tested with multiple video types - all successfully fetch durations automatically
 
 **October 5, 2025 - High-Resolution Thumbnails with Dark Border Detection:**
 - **Updated thumbnail quality system**: All videos now use high-resolution `maxresdefault.jpg` (1280x720) as primary source
