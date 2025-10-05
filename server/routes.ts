@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
+import { fetchYouTubeDuration } from "./youtube";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDatabase();
@@ -62,6 +63,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const validatedData = insertVideoSchema.parse(req.body);
+      
+      const duration = await fetchYouTubeDuration(validatedData.url);
+      if (duration) {
+        validatedData.duration = duration;
+      }
+      
       const video = await storage.createVideo(validatedData);
       res.status(201).json(video);
     } catch (error) {
