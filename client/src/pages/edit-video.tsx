@@ -47,7 +47,6 @@ export default function EditVideo() {
     defaultValues: {
       title: "",
       url: "",
-      duration: "",
       tags: [],
     },
   });
@@ -57,7 +56,6 @@ export default function EditVideo() {
       form.reset({
         title: video.title,
         url: video.url,
-        duration: video.duration || "",
         tags: video.tags.map(tag => tag.name),
       });
       setSelectedTags(video.tags.map(tag => tag.name));
@@ -101,7 +99,6 @@ export default function EditVideo() {
   const onSubmit = (data: InsertVideo) => {
     updateVideoMutation.mutate({
       title: data.title,
-      duration: data.duration,
       tags: selectedTags,
     });
   };
@@ -223,27 +220,6 @@ export default function EditVideo() {
                   />
                   <p className="text-xs text-gray-500">URL cannot be changed</p>
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duration</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value || ""}
-                          placeholder="e.g., 5:23 or 1:15:30"
-                          className="bg-gray-800 border-gray-700"
-                          data-testid="input-duration"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                      <p className="text-xs text-gray-500">Optional - Format: MM:SS or H:MM:SS</p>
-                    </FormItem>
-                  )}
-                />
 
                 <div className="space-y-2">
                   <FormLabel>Tags</FormLabel>

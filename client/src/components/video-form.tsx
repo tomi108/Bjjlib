@@ -30,7 +30,6 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
     defaultValues: {
       title: "",
       url: "",
-      duration: "",
       tags: [],
     },
   });
@@ -130,28 +129,6 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
                   <FormMessage />
                   <p className="text-xs text-muted-foreground">
                     YouTube, Vimeo, or direct video link
-                  </p>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="duration"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Duration</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., 5:23 or 1:15:30"
-                      {...field}
-                      value={field.value || ""}
-                      data-testid="input-video-duration"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground">
-                    Optional - Format: MM:SS or H:MM:SS
                   </p>
                 </FormItem>
               )}
