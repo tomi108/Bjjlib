@@ -14,7 +14,7 @@ export function VideoCard({ video }: VideoCardProps) {
     // Extract YouTube video ID if it's a YouTube URL
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     if (youtubeMatch) {
-      return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+      return `https://img.youtube.com/vi/${youtubeMatch[1]}/sddefault.jpg`;
     }
     
     // Default placeholder for other video URLs

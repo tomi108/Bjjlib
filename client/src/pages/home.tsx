@@ -35,7 +35,7 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
 function getThumbnailUrl(url: string): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
-    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/sddefault.jpg`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
