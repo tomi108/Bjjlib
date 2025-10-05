@@ -8,6 +8,8 @@ export const videosSqlite = sqliteTable("videos", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
   url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  orientation: text("orientation"),
   dateAdded: integer("date_added", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
@@ -15,6 +17,8 @@ export const videosPg = pgTable("videos", {
   id: serial("id").primaryKey(),
   title: pgText("title").notNull(),
   url: pgText("url").notNull(),
+  thumbnail: pgText("thumbnail"),
+  orientation: pgText("orientation"),
   dateAdded: timestamp("date_added").notNull().defaultNow(),
 });
 
