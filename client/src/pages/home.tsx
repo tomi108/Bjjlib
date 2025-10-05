@@ -64,6 +64,28 @@ function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
 }
 
+function detectAndCropBlackBars(img: HTMLImageElement): void {
+  try {
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    const targetAspectRatio = 16 / 9;
+    
+    if (aspectRatio < targetAspectRatio * 0.95) {
+      const barPercent = ((1 - aspectRatio / targetAspectRatio) / 2) * 100;
+      
+      if (barPercent > 5) {
+        const scale = targetAspectRatio / aspectRatio;
+        img.style.clipPath = `inset(0 ${barPercent}% 0 ${barPercent}%)`;
+        img.style.transform = `scale(${scale})`;
+        img.style.objectPosition = 'center';
+      }
+    }
+  } catch (error) {
+    console.error('Error detecting black bars:', error);
+  }
+}
+
 export default function Home() {
   const searchParams = new URLSearchParams(useSearch());
   const [, setLocation] = useLocation();
@@ -435,6 +457,7 @@ export default function Home() {
                                     alt={video.title}
                                     className="block absolute top-0 left-0 w-full h-full object-cover object-center"
                                     onError={handleThumbnailError}
+                                    onLoad={(e) => detectAndCropBlackBars(e.currentTarget)}
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
