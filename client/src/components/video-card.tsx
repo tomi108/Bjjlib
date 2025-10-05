@@ -26,13 +26,12 @@ export function VideoCard({ video }: VideoCardProps) {
   };
 
   return (
-    <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1" data-testid={`video-card-${video.id}`}>
-      <div className="relative overflow-hidden h-48 flex items-center justify-center bg-black">
+    <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
+      <div className="relative h-48 overflow-hidden bg-black">
         <img 
           src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
-          className="w-full h-full object-cover scale-[1.15]"
-          data-testid={`video-thumbnail-${video.id}`}
+          className="w-full h-full object-cover object-center scale-[2.2] hover:scale-[2.25] transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
           }}
