@@ -1,4 +1,4 @@
-import { VideoWithTags } from "@shared/schema";
+import { Video } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Play, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface VideoCardProps {
-  video: VideoWithTags;
+  video: Video;
 }
 
 export function VideoCard({ video }: VideoCardProps) {
@@ -27,11 +27,11 @@ export function VideoCard({ video }: VideoCardProps) {
 
   return (
     <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-      <div className="relative h-48 overflow-hidden bg-black">
+      <div className="relative overflow-hidden">
         <img 
           src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
-          className="w-full h-full object-cover object-center scale-[2.2] hover:scale-[2.25] transition-transform duration-300"
+          className="w-full h-48 object-cover scale-125"
           onError={(e) => {
             (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
           }}
@@ -54,16 +54,22 @@ export function VideoCard({ video }: VideoCardProps) {
           {video.title}
         </h3>
         
+        {video.description && (
+          <p className="text-sm text-muted-foreground mb-3 line-clamp-2" data-testid={`text-description-${video.id}`}>
+            {video.description}
+          </p>
+        )}
+        
         {video.tags && video.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {video.tags.map((tag) => (
+            {video.tags.map((tag, index) => (
               <Badge 
-                key={tag.id} 
+                key={index} 
                 variant="secondary" 
                 className="text-xs"
-                data-testid={`badge-tag-${tag.name}`}
+                data-testid={`badge-tag-${tag}`}
               >
-                {tag.name}
+                {tag}
               </Badge>
             ))}
           </div>
