@@ -6,7 +6,7 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
-**October 5, 2025 - Smart YouTube Thumbnail System:**
+**October 5, 2025 - Smart YouTube Thumbnail System with Aspect Ratio Detection:**
 - Implemented intelligent thumbnail selection based on video type to eliminate black bars on Shorts while preserving quality for regular videos
 - Added `isYouTubeShort()` detection function that checks for `/shorts/` in URL
 - **YouTube Shorts**: Use frame-based thumbnails (`hq2.jpg`) that capture actual video frames without YouTube's letterboxing
@@ -14,10 +14,15 @@ This is a full-stack video library management application built with React, Expr
 - Implemented cascading fallback system with `handleThumbnailError()`:
   - Shorts: hq2.jpg → hq1.jpg → hq3.jpg → maxresdefault.jpg → hqdefault.jpg
   - Regular videos: maxresdefault.jpg → hqdefault.jpg
+- **Aspect Ratio-Based Black Bar Detection**: Added `detectAndCropBlackBars()` function that:
+  - Calculates image aspect ratio from naturalWidth/naturalHeight
+  - Detects thumbnails narrower than 16:9 (aspectRatio < 1.69)
+  - Dynamically applies clipPath and scale transform to crop side bars
+  - Only modifies images with >5% deviation to avoid false positives
 - Updated container styling from inline `paddingBottom: "56.25%"` to Tailwind `aspect-[16/9]` class
 - Removed problematic `scale-[2.2]` zoom class, added `block` class to images
-- With `object-fit: cover`, vertical Short frames fill 16:9 containers by cropping top/bottom (no side black bars)
-- Horizontal videos maintain sharp, high-quality display
+- Combined approach eliminates black bars on both frame-based Shorts and letterboxed thumbnails
+- Horizontal 16:9 videos maintain sharp, high-quality display without modification
 
 **October 5, 2025 - TypeScript Error Fixes:**
 - Fixed TypeScript errors in VideoCard component
