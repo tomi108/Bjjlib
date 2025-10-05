@@ -15,17 +15,22 @@ This is a full-stack video library management application built with React, Expr
   - Shorts: hq2.jpg → hq1.jpg → hq3.jpg → maxresdefault.jpg → hqdefault.jpg
   - Regular videos: maxresdefault.jpg → hqdefault.jpg
   - Fallback to SVG placeholder with play icon for 404/failed thumbnails
-- **Server-Side Pixel Analysis for Black Bar Detection (✅ WORKING)**: 
+- **Server-Side Pixel Analysis for Dark Border Detection (✅ WORKING)**: 
   - Created `/api/analyze-thumbnail` endpoint using Sharp.js for accurate pixel-based detection
   - Bypasses CORS restrictions by fetching and analyzing images server-side
   - Security: URL validation with hostname whitelist (YouTube/Vimeo CDNs only), SSRF protection
   - Algorithm: Downsample to 25%, sample RGB columns every 5px (min 10 samples per column)
-  - Black/gray pixel detection: `maxChannel < 60 AND channelDiff < 15` (detects dark pixels with minimal color variation)
-  - Column detection: Requires 65% of column pixels to be black/gray (tolerates partial occlusion from video content)
-  - Successfully prevents false positives on colored content (blue BJJ mats, dark backgrounds)
+  - **Universal dark border detection** - detects ANY very dark borders regardless of color:
+    - `brightness < 50` (average of RGB channels) - catches all dark pixels including colored ones
+    - OR `maxChannel < 60 AND channelDiff < 15` - backup detection for near-black/gray pixels
+  - Column detection: Requires 65% of column pixels to be dark (tolerates partial occlusion from video content)
+  - Successfully detects black, gray, AND dark colored borders (e.g., dark blue letterbox bars)
+  - Prevents false positives on lighter colored content (blue BJJ mats, dark backgrounds)
   - Returns left/right bar percentages; frontend applies clipPath + scale transform if >5% total bars
   - In-memory caching prevents re-analysis of same thumbnails
-  - **Verified working**: "Open guard - Armbar from knee on belly" video detects and crops 28.3% bars on each side
+  - **Verified working on multiple border types**:
+    - "Open guard - Armbar from knee on belly": Black/gray borders (28.3% each side) ✅
+    - "Test YouTube Short": Dark blue borders RGB(3,1,38) (29.2% each side) ✅
 - Updated container styling from inline `paddingBottom: "56.25%"` to Tailwind `aspect-[16/9]` class
 - Removed problematic `scale-[2.2]` zoom class, added `block` class to images
 - System successfully detects and crops baked-in black/gray letterbox bars from video thumbnails

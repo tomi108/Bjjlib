@@ -285,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const isPixelBlackOrGray = (x: number, y: number): boolean => {
+      const isPixelDarkBorder = (x: number, y: number): boolean => {
         const channels = info.channels;
         const index = (y * info.width + x) * channels;
         const r = data[index];
@@ -295,27 +295,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const maxChannel = Math.max(r, g, b);
         const minChannel = Math.min(r, g, b);
         const channelDiff = maxChannel - minChannel;
+        const brightness = (r + g + b) / 3;
         
-        return maxChannel < 60 && channelDiff < 15;
+        return brightness < 50 || (maxChannel < 60 && channelDiff < 15);
       };
 
-      const isColumnBlack = (x: number): boolean => {
+      const isColumnDark = (x: number): boolean => {
         const sampleStep = 5;
-        let blackPixels = 0;
+        let darkPixels = 0;
         let totalSamples = 0;
         
         for (let y = 0; y < info.height; y += sampleStep) {
-          if (isPixelBlackOrGray(x, y)) blackPixels++;
+          if (isPixelDarkBorder(x, y)) darkPixels++;
           totalSamples++;
         }
         
-        const ratio = blackPixels / totalSamples;
+        const ratio = darkPixels / totalSamples;
         return totalSamples >= 10 && ratio > 0.65;
       };
 
       let leftBarWidth = 0;
       for (let x = 0; x < info.width * 0.4; x++) {
-        if (isColumnBlack(x)) {
+        if (isColumnDark(x)) {
           leftBarWidth = x + 1;
         } else {
           break;
@@ -324,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let rightBarWidth = 0;
       for (let x = info.width - 1; x > info.width * 0.6; x--) {
-        if (isColumnBlack(x)) {
+        if (isColumnDark(x)) {
           rightBarWidth = info.width - x;
         } else {
           break;
