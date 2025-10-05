@@ -14,7 +14,7 @@ export function VideoCard({ video }: VideoCardProps) {
     // Extract YouTube video ID if it's a YouTube URL
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     if (youtubeMatch) {
-      return `https://img.youtube.com/vi/${youtubeMatch[1]}/sddefault.jpg`;
+      return `https://img.youtube.com/vi/${youtubeMatch[1]}/hqdefault.jpg`;
     }
     
     // Default placeholder for other video URLs
@@ -31,7 +31,7 @@ export function VideoCard({ video }: VideoCardProps) {
         <img 
           src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover scale-110"
           onError={(e) => {
             (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
           }}

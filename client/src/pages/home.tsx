@@ -35,7 +35,7 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
 function getThumbnailUrl(url: string): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
-    return `https://img.youtube.com/vi/${youtubeMatch[1]}/sddefault.jpg`;
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/hqdefault.jpg`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
@@ -399,7 +399,7 @@ export default function Home() {
                                   <img
                                     src={thumbnailUrl}
                                     alt={video.title}
-                                    className="absolute inset-0 w-full h-full object-cover"
+                                    className="absolute inset-0 w-full h-full object-cover scale-110"
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
