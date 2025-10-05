@@ -399,7 +399,7 @@ export default function Home() {
                                   <img
                                     src={thumbnailUrl}
                                     alt={video.title}
-                                    className="w-full h-full object-cover"
+                                    className="absolute inset-0 w-full h-full object-cover"
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
@@ -413,7 +413,7 @@ export default function Home() {
                                   </button>
                                 </>
                               ) : (
-                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
                                     <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                                     {isICloud ? (
