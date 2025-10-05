@@ -473,6 +473,11 @@ export default function Home() {
                                       <Play className="w-3.5 h-3.5 text-white ml-0.5" fill="white" />
                                     </div>
                                   </button>
+                                  {video.duration && (
+                                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/80 text-white text-xs font-semibold rounded pointer-events-none" data-testid={`video-duration-${video.id}`}>
+                                      {video.duration}
+                                    </div>
+                                  )}
                                 </>
                               ) : (
                                 <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">

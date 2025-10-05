@@ -44,8 +44,14 @@ export class DbStorage implements IStorage {
             id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
+            duration TEXT,
             date_added TIMESTAMP NOT NULL DEFAULT NOW()
           )
+        `);
+        
+        await db.execute(sql`
+          ALTER TABLE videos 
+          ADD COLUMN IF NOT EXISTS duration TEXT
         `);
 
         await db.execute(sql`
@@ -80,9 +86,18 @@ export class DbStorage implements IStorage {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
+            duration TEXT,
             date_added INTEGER NOT NULL DEFAULT (unixepoch())
           )
         `);
+        
+        try {
+          await db.run(sql`ALTER TABLE videos ADD COLUMN duration TEXT`);
+        } catch (e: any) {
+          if (!e.message?.includes("duplicate column")) {
+            console.error("Failed to add duration column:", e.message);
+          }
+        }
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS tags (

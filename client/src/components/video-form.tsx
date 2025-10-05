@@ -30,7 +30,7 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
     defaultValues: {
       title: "",
       url: "",
-      description: "",
+      duration: "",
       tags: [],
     },
   });
@@ -137,21 +137,22 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
 
             <FormField
               control={form.control}
-              name="description"
+              name="duration"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Duration</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Brief description of the technique..."
-                      rows={3}
-                      className="resize-none"
+                    <Input
+                      placeholder="e.g., 5:23 or 1:15:30"
                       {...field}
                       value={field.value || ""}
-                      data-testid="textarea-video-description"
+                      data-testid="input-video-duration"
                     />
                   </FormControl>
                   <FormMessage />
+                  <p className="text-xs text-muted-foreground">
+                    Optional - Format: MM:SS or H:MM:SS
+                  </p>
                 </FormItem>
               )}
             />

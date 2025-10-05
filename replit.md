@@ -6,6 +6,15 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
+**October 5, 2025 - Video Duration Overlay:**
+- Added optional `duration` field to videos table (TEXT type for both SQLite and PostgreSQL)
+- Duration input added to both Add Video and Edit Video forms
+- Duration format: MM:SS or H:MM:SS (e.g., "5:23" or "1:15:30")
+- Duration displays as overlay at bottom right of video thumbnails
+- Styled with semi-transparent black background (`bg-black/80`) and white text
+- Only appears when video has duration value set
+- Tested and verified working with visual confirmation
+
 **October 5, 2025 - High-Resolution Thumbnails with Dark Border Detection:**
 - **Updated thumbnail quality system**: All videos now use high-resolution `maxresdefault.jpg` (1280x720) as primary source
 - Universal fallback chain for optimal quality and reliability:
