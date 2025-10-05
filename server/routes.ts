@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
+import sharp from "sharp";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDatabase();
@@ -223,6 +224,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking session:", error);
       res.status(500).json({ message: "Failed to check session" });
+    }
+  });
+
+  const thumbnailAnalysisCache = new Map<string, { leftBar: number; rightBar: number; totalPercent: number }>();
+
+  app.get("/api/analyze-thumbnail", async (req, res) => {
+    try {
+      const thumbnailUrl = req.query.url as string;
+      
+      if (!thumbnailUrl) {
+        return res.status(400).json({ message: "Missing url parameter" });
+      }
+
+      if (thumbnailAnalysisCache.has(thumbnailUrl)) {
+        return res.json(thumbnailAnalysisCache.get(thumbnailUrl));
+      }
+
+      const response = await fetch(thumbnailUrl);
+      if (!response.ok) {
+        return res.status(404).json({ message: "Failed to fetch thumbnail" });
+      }
+
+      const buffer = await response.arrayBuffer();
+      const image = sharp(Buffer.from(buffer));
+      const metadata = await image.metadata();
+
+      if (!metadata.width || !metadata.height) {
+        return res.status(400).json({ message: "Invalid image" });
+      }
+
+      const scaleFactor = 0.25;
+      const scaledWidth = Math.floor(metadata.width * scaleFactor);
+      const scaledHeight = Math.floor(metadata.height * scaleFactor);
+
+      const { data, info } = await image
+        .resize(scaledWidth, scaledHeight)
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const getPixelBrightness = (x: number, y: number): number => {
+        const channels = info.channels;
+        const index = (y * info.width + x) * channels;
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        return (r + g + b) / 3;
+      };
+
+      const isColumnBlack = (x: number): boolean => {
+        const sampleStep = 10;
+        let darkPixels = 0;
+        let totalSamples = 0;
+        
+        for (let y = 0; y < info.height; y += sampleStep) {
+          const brightness = getPixelBrightness(x, y);
+          if (brightness < 25) darkPixels++;
+          totalSamples++;
+        }
+        
+        return totalSamples >= 5 && darkPixels / totalSamples > 0.8;
+      };
+
+      let leftBarWidth = 0;
+      for (let x = 0; x < info.width * 0.4; x++) {
+        if (isColumnBlack(x)) {
+          leftBarWidth = x + 1;
+        } else {
+          break;
+        }
+      }
+
+      let rightBarWidth = 0;
+      for (let x = info.width - 1; x > info.width * 0.6; x--) {
+        if (isColumnBlack(x)) {
+          rightBarWidth = info.width - x;
+        } else {
+          break;
+        }
+      }
+
+      const leftBarPercent = (leftBarWidth / info.width) * 100;
+      const rightBarPercent = (rightBarWidth / info.width) * 100;
+      const totalBarPercent = leftBarPercent + rightBarPercent;
+
+      const result = {
+        leftBar: leftBarPercent,
+        rightBar: rightBarPercent,
+        totalPercent: totalBarPercent
+      };
+
+      thumbnailAnalysisCache.set(thumbnailUrl, result);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error analyzing thumbnail:", error);
+      res.status(500).json({ message: "Failed to analyze thumbnail" });
     }
   });
 
