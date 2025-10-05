@@ -27,11 +27,11 @@ export function VideoCard({ video }: VideoCardProps) {
 
   return (
     <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-      <div className="relative overflow-hidden">
+      <div className="relative">
         <img 
           src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
-          className="w-full h-48 object-cover scale-125"
+          className="w-full h-48 object-cover"
           onError={(e) => {
             (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
           }}
