@@ -14,18 +14,20 @@ This is a full-stack video library management application built with React, Expr
 - Implemented cascading fallback system with `handleThumbnailError()`:
   - Shorts: hq2.jpg → hq1.jpg → hq3.jpg → maxresdefault.jpg → hqdefault.jpg
   - Regular videos: maxresdefault.jpg → hqdefault.jpg
+  - Fallback to SVG placeholder with play icon for 404/failed thumbnails
 - **Server-Side Pixel Analysis for Black Bar Detection**: 
   - Created `/api/analyze-thumbnail` endpoint using Sharp.js for accurate pixel-based detection
   - Bypasses CORS restrictions by fetching and analyzing images server-side
   - Security: URL validation with hostname whitelist (YouTube/Vimeo CDNs only), SSRF protection
-  - Algorithm: Downsample to 25%, sample RGB columns every 10px, detect black pixels (brightness <25)
+  - Algorithm: Downsample to 25%, sample RGB columns every 5px (min 10 samples per column)
+  - Strict black/gray detection: `maxChannel < 50 AND channelDiff < 10 AND saturationRatio < 0.25`
+  - Prevents false positives on colored content (blue BJJ mats) while detecting true black/gray bars
   - Returns left/right bar percentages; frontend applies clipPath + scale transform if >5% total bars
   - In-memory caching prevents re-analysis of same thumbnails
-  - Detects black bars baked into 16:9 images (pillarbox), not just aspect ratio issues
 - Updated container styling from inline `paddingBottom: "56.25%"` to Tailwind `aspect-[16/9]` class
 - Removed problematic `scale-[2.2]` zoom class, added `block` class to images
-- Combined approach eliminates black bars on frame-based Shorts, letterboxed thumbnails, and pillarboxed content
-- Horizontal 16:9 videos without bars maintain sharp, high-quality display without modification
+- System ready to detect and crop baked-in black/gray letterbox bars when present in thumbnails
+- Current thumbnails analyzed show no baked-in black bars (0% detection across all videos)
 
 **October 5, 2025 - TypeScript Error Fixes:**
 - Fixed TypeScript errors in VideoCard component

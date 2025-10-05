@@ -69,27 +69,19 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     const thumbnailUrl = img.src;
     
     const response = await fetch(`/api/analyze-thumbnail?url=${encodeURIComponent(thumbnailUrl)}`);
-    if (!response.ok) {
-      console.log(`[${videoTitle}] Analysis failed: ${response.status}`);
-      return;
-    }
+    if (!response.ok) return;
     
     const data = await response.json();
     const { leftBar, rightBar, totalPercent } = data;
-    
-    console.log(`[${videoTitle}] Detected bars - Left: ${leftBar.toFixed(1)}%, Right: ${rightBar.toFixed(1)}%, Total: ${totalPercent.toFixed(1)}%`);
     
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
       img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
       img.style.transform = `scale(${scale})`;
       img.style.objectPosition = 'center';
-      console.log(`[${videoTitle}] Applied cropping - clipPath: inset(0 ${rightBar}% 0 ${leftBar}%), scale: ${scale.toFixed(2)}`);
-    } else {
-      console.log(`[${videoTitle}] No cropping needed (bars <= 5%)`);
     }
   } catch (error) {
-    console.error(`[${videoTitle}] Error detecting black bars:`, error);
+    console.error('Error detecting black bars:', error);
   }
 }
 

@@ -295,8 +295,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const maxChannel = Math.max(r, g, b);
         const minChannel = Math.min(r, g, b);
         const channelDiff = maxChannel - minChannel;
+        const brightness = (r + g + b) / 3;
         
-        return maxChannel < 30 && channelDiff < 15;
+        const saturationRatio = channelDiff / Math.max(brightness, 1);
+        
+        return maxChannel < 50 && channelDiff < 10 && saturationRatio < 0.25;
       };
 
       const isColumnBlack = (x: number): boolean => {
