@@ -31,7 +31,7 @@ export function VideoCard({ video }: VideoCardProps) {
         <img 
           src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
-          className="w-full h-full object-cover scale-110"
+          className="w-full h-full object-cover scale-125"
           onError={(e) => {
             (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
           }}

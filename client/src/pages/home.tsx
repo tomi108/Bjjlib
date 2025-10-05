@@ -399,7 +399,7 @@ export default function Home() {
                                   <img
                                     src={thumbnailUrl}
                                     alt={video.title}
-                                    className="absolute inset-0 w-full h-full object-cover scale-110"
+                                    className="absolute inset-0 w-full h-full object-cover scale-125"
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
