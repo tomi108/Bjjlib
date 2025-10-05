@@ -110,6 +110,30 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
     },
   });
 
+  const regenerateThumbnailsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/videos/regenerate-thumbnails", {});
+      return response.json();
+    },
+    onSuccess: (data: { results: Array<{ id: number; success: boolean; orientation?: string; error?: string }> }) => {
+      const successCount = data.results.filter(r => r.success).length;
+      const failedCount = data.results.filter(r => !r.success).length;
+      
+      toast({
+        title: "Thumbnails regenerated",
+        description: `Successfully generated ${successCount} thumbnails${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error regenerating thumbnails",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteVideoMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/videos/${id}`);
@@ -237,7 +261,23 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <Button
+          onClick={() => regenerateThumbnailsMutation.mutate()}
+          variant="outline"
+          className="border-gray-700 hover:bg-gray-800"
+          disabled={regenerateThumbnailsMutation.isPending}
+          data-testid="button-regenerate-thumbnails"
+        >
+          {regenerateThumbnailsMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Regenerating...
+            </>
+          ) : (
+            "Regenerate All Thumbnails"
+          )}
+        </Button>
         <Button
           onClick={() => logoutMutation.mutate()}
           variant="outline"

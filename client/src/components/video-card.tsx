@@ -1,4 +1,4 @@
-import { Video } from "@shared/schema";
+import { VideoWithTags } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,18 +6,20 @@ import { Play, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface VideoCardProps {
-  video: Video;
+  video: VideoWithTags;
 }
 
 export function VideoCard({ video }: VideoCardProps) {
-  const getVideoThumbnail = (url: string) => {
-    // Extract YouTube video ID if it's a YouTube URL
-    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  const getVideoThumbnail = (video: VideoWithTags) => {
+    if (video.thumbnail) {
+      return video.thumbnail;
+    }
+    
+    const youtubeMatch = video.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     if (youtubeMatch) {
       return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
     }
     
-    // Default placeholder for other video URLs
     return `https://images.unsplash.com/photo-1555597408-26bc8e548a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=450`;
   };
 
@@ -29,7 +31,7 @@ export function VideoCard({ video }: VideoCardProps) {
     <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
       <div className="relative">
         <img 
-          src={getVideoThumbnail(video.url)}
+          src={getVideoThumbnail(video)}
           alt={`Thumbnail for ${video.title}`}
           className="w-full h-48 object-cover"
           onError={(e) => {
@@ -54,22 +56,16 @@ export function VideoCard({ video }: VideoCardProps) {
           {video.title}
         </h3>
         
-        {video.description && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2" data-testid={`text-description-${video.id}`}>
-            {video.description}
-          </p>
-        )}
-        
         {video.tags && video.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {video.tags.map((tag, index) => (
+            {video.tags.map((tag) => (
               <Badge 
-                key={index} 
+                key={tag.id} 
                 variant="secondary" 
                 className="text-xs"
-                data-testid={`badge-tag-${tag}`}
+                data-testid={`badge-tag-${tag.name}`}
               >
-                {tag}
+                {tag.name}
               </Badge>
             ))}
           </div>

@@ -8,6 +8,7 @@ export interface IStorage {
   createVideo(video: InsertVideo): Promise<VideoWithTags>;
   updateVideo(id: number, video: Partial<InsertVideo>): Promise<VideoWithTags | undefined>;
   deleteVideo(id: number): Promise<boolean>;
+  updateVideoThumbnail(id: number, thumbnailPath: string, orientation: string): Promise<boolean>;
   
   getAllTags(): Promise<Tag[]>;
   getTag(id: number): Promise<Tag | undefined>;
@@ -44,9 +45,18 @@ export class DbStorage implements IStorage {
             id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
+            thumbnail TEXT,
+            orientation TEXT,
             date_added TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `);
+        
+        try {
+          await db.execute(sql`ALTER TABLE videos ADD COLUMN thumbnail TEXT`);
+        } catch {}
+        try {
+          await db.execute(sql`ALTER TABLE videos ADD COLUMN orientation TEXT`);
+        } catch {}
 
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS tags (
@@ -80,9 +90,18 @@ export class DbStorage implements IStorage {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
+            thumbnail TEXT,
+            orientation TEXT,
             date_added INTEGER NOT NULL DEFAULT (unixepoch())
           )
         `);
+
+        try {
+          await db.run(sql`ALTER TABLE videos ADD COLUMN thumbnail TEXT`);
+        } catch {}
+        try {
+          await db.run(sql`ALTER TABLE videos ADD COLUMN orientation TEXT`);
+        } catch {}
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS tags (
@@ -299,6 +318,14 @@ export class DbStorage implements IStorage {
 
   async deleteVideo(id: number): Promise<boolean> {
     const result = dbGet(await db.delete(videos).where(eq(videos.id, id)).returning());
+    return !!result;
+  }
+
+  async updateVideoThumbnail(id: number, thumbnailPath: string, orientation: string): Promise<boolean> {
+    const result = dbGet(await db.update(videos)
+      .set({ thumbnail: thumbnailPath, orientation })
+      .where(eq(videos.id, id))
+      .returning());
     return !!result;
   }
 
