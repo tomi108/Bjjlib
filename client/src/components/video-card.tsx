@@ -1,4 +1,4 @@
-import { Video } from "@shared/schema";
+import { VideoWithTags } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Play, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface VideoCardProps {
-  video: Video;
+  video: VideoWithTags;
 }
 
 export function VideoCard({ video }: VideoCardProps) {
@@ -54,22 +54,16 @@ export function VideoCard({ video }: VideoCardProps) {
           {video.title}
         </h3>
         
-        {video.description && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2" data-testid={`text-description-${video.id}`}>
-            {video.description}
-          </p>
-        )}
-        
         {video.tags && video.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {video.tags.map((tag, index) => (
+            {video.tags.map((tag) => (
               <Badge 
-                key={index} 
+                key={tag.id} 
                 variant="secondary" 
                 className="text-xs"
-                data-testid={`badge-tag-${tag}`}
+                data-testid={`badge-tag-${tag.name}`}
               >
-                {tag}
+                {tag.name}
               </Badge>
             ))}
           </div>
