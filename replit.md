@@ -6,12 +6,18 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
-**October 5, 2025 - Video Thumbnail Display Fix:**
-- Fixed vertical video thumbnails showing black bars on the sides
-- Removed problematic `scale-[2.2]` zoom class from thumbnail images in home.tsx
-- Added `block` class to ensure proper display styling
-- Thumbnails now use `object-fit: cover` effectively to fill containers without distortion
-- Both vertical and horizontal video thumbnails now display correctly without black borders
+**October 5, 2025 - Smart YouTube Thumbnail System:**
+- Implemented intelligent thumbnail selection based on video type to eliminate black bars on Shorts while preserving quality for regular videos
+- Added `isYouTubeShort()` detection function that checks for `/shorts/` in URL
+- **YouTube Shorts**: Use frame-based thumbnails (`hq2.jpg`) that capture actual video frames without YouTube's letterboxing
+- **Regular YouTube videos**: Use high-quality `maxresdefault.jpg` (1920x1080) for sharp thumbnails
+- Implemented cascading fallback system with `handleThumbnailError()`:
+  - Shorts: hq2.jpg → hq1.jpg → hq3.jpg → maxresdefault.jpg → hqdefault.jpg
+  - Regular videos: maxresdefault.jpg → hqdefault.jpg
+- Updated container styling from inline `paddingBottom: "56.25%"` to Tailwind `aspect-[16/9]` class
+- Removed problematic `scale-[2.2]` zoom class, added `block` class to images
+- With `object-fit: cover`, vertical Short frames fill 16:9 containers by cropping top/bottom (no side black bars)
+- Horizontal videos maintain sharp, high-quality display
 
 **October 5, 2025 - TypeScript Error Fixes:**
 - Fixed TypeScript errors in VideoCard component
