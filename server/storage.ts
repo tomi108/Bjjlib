@@ -8,7 +8,6 @@ export interface IStorage {
   createVideo(video: InsertVideo): Promise<VideoWithTags>;
   updateVideo(id: number, video: Partial<InsertVideo>): Promise<VideoWithTags | undefined>;
   deleteVideo(id: number): Promise<boolean>;
-  updateVideoThumbnail(id: number, thumbnailPath: string, orientation: string): Promise<boolean>;
   
   getAllTags(): Promise<Tag[]>;
   getTag(id: number): Promise<Tag | undefined>;
@@ -45,18 +44,9 @@ export class DbStorage implements IStorage {
             id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
-            thumbnail TEXT,
-            orientation TEXT,
             date_added TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `);
-        
-        try {
-          await db.execute(sql`ALTER TABLE videos ADD COLUMN thumbnail TEXT`);
-        } catch {}
-        try {
-          await db.execute(sql`ALTER TABLE videos ADD COLUMN orientation TEXT`);
-        } catch {}
 
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS tags (
@@ -90,18 +80,9 @@ export class DbStorage implements IStorage {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
-            thumbnail TEXT,
-            orientation TEXT,
             date_added INTEGER NOT NULL DEFAULT (unixepoch())
           )
         `);
-
-        try {
-          await db.run(sql`ALTER TABLE videos ADD COLUMN thumbnail TEXT`);
-        } catch {}
-        try {
-          await db.run(sql`ALTER TABLE videos ADD COLUMN orientation TEXT`);
-        } catch {}
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS tags (
@@ -321,14 +302,6 @@ export class DbStorage implements IStorage {
     return !!result;
   }
 
-  async updateVideoThumbnail(id: number, thumbnailPath: string, orientation: string): Promise<boolean> {
-    const result = dbGet(await db.update(videos)
-      .set({ thumbnail: thumbnailPath, orientation })
-      .where(eq(videos.id, id))
-      .returning());
-    return !!result;
-  }
-
   async getAllTags(): Promise<Tag[]> {
     const tagsQuery = db
       .selectDistinct({ id: tags.id, name: tags.name })
@@ -437,121 +410,6 @@ export class DbStorage implements IStorage {
     } else {
       db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run();
     }
-  }
-
-  async normalizeTags(): Promise<{ merged: number; updated: number }> {
-    const allTagsQuery = db.select().from(tags);
-    const allTags = dbAll(isPostgres ? await allTagsQuery : allTagsQuery.all());
-    
-    const tagGroups = new Map<string, Tag[]>();
-    for (const tag of allTags) {
-      const normalized = tag.name.toLowerCase().trim();
-      if (!tagGroups.has(normalized)) {
-        tagGroups.set(normalized, []);
-      }
-      tagGroups.get(normalized)!.push(tag);
-    }
-    
-    let mergedCount = 0;
-    let updatedCount = 0;
-    
-    for (const [normalized, duplicates] of Array.from(tagGroups.entries())) {
-      if (duplicates.length === 1) {
-        if (duplicates[0].name !== normalized) {
-          if (isPostgres) {
-            await db.update(tags)
-              .set({ name: normalized })
-              .where(eq(tags.id, duplicates[0].id));
-          } else {
-            db.update(tags)
-              .set({ name: normalized })
-              .where(eq(tags.id, duplicates[0].id))
-              .run();
-          }
-          updatedCount++;
-        }
-        continue;
-      }
-      
-      duplicates.sort((a: Tag, b: Tag) => a.id - b.id);
-      const canonical = duplicates[0];
-      const toMerge = duplicates.slice(1);
-      
-      if (canonical.name !== normalized) {
-        if (isPostgres) {
-          await db.update(tags)
-            .set({ name: normalized })
-            .where(eq(tags.id, canonical.id));
-        } else {
-          db.update(tags)
-            .set({ name: normalized })
-            .where(eq(tags.id, canonical.id))
-            .run();
-        }
-        updatedCount++;
-      }
-      
-      for (const duplicateTag of toMerge) {
-        const videoTagsToUpdateQuery = db
-          .select()
-          .from(videoTags)
-          .where(eq(videoTags.tagId, duplicateTag.id));
-        
-        const videoTagsToUpdate = dbAll(
-          isPostgres ? await videoTagsToUpdateQuery : videoTagsToUpdateQuery.all()
-        );
-        
-        for (const vt of videoTagsToUpdate) {
-          try {
-            if (isPostgres) {
-              await db.update(videoTags)
-                .set({ tagId: canonical.id })
-                .where(
-                  and(
-                    eq(videoTags.videoId, vt.videoId),
-                    eq(videoTags.tagId, duplicateTag.id)
-                  )
-                );
-            } else {
-              db.update(videoTags)
-                .set({ tagId: canonical.id })
-                .where(
-                  and(
-                    eq(videoTags.videoId, vt.videoId),
-                    eq(videoTags.tagId, duplicateTag.id)
-                  )
-                )
-                .run();
-            }
-          } catch (error) {
-            if (isPostgres) {
-              await db.delete(videoTags).where(
-                and(
-                  eq(videoTags.videoId, vt.videoId),
-                  eq(videoTags.tagId, duplicateTag.id)
-                )
-              );
-            } else {
-              db.delete(videoTags).where(
-                and(
-                  eq(videoTags.videoId, vt.videoId),
-                  eq(videoTags.tagId, duplicateTag.id)
-                )
-              ).run();
-            }
-          }
-        }
-        
-        if (isPostgres) {
-          await db.delete(tags).where(eq(tags.id, duplicateTag.id));
-        } else {
-          db.delete(tags).where(eq(tags.id, duplicateTag.id)).run();
-        }
-        mergedCount++;
-      }
-    }
-    
-    return { merged: mergedCount, updated: updatedCount };
   }
 }
 

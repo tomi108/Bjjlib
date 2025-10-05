@@ -32,21 +32,13 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   return null;
 }
 
-function getThumbnailUrl(video: VideoWithTags): string | null {
-  if (video.thumbnail) {
-    return video.thumbnail;
-  }
-
-  if (!video.url) {
-    return null;
-  }
-
-  const youtubeMatch = video.url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
+function getThumbnailUrl(url: string): string | null {
+  const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
   }
 
-  const vimeoMatch = video.url.match(/vimeo\.com\/(\d+)/);
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
   if (vimeoMatch) {
     return `https://vumbnail.com/${vimeoMatch[1]}.jpg`;
   }
@@ -373,7 +365,7 @@ export default function Home() {
                       {videos.map(video => {
                         const embedUrl = getEmbedUrl(video.url);
                         const embedUrlWithAutoplay = getEmbedUrl(video.url, true);
-                        const thumbnailUrl = getThumbnailUrl(video);
+                        const thumbnailUrl = getThumbnailUrl(video.url);
                         const isICloud = isICloudUrl(video.url);
                         
                         const handlePlayClick = () => {

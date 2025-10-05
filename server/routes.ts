@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
-import { generateThumbnail } from "./thumbnail-generator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDatabase();
@@ -63,17 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertVideoSchema.parse(req.body);
       const video = await storage.createVideo(validatedData);
-      
-      try {
-        const thumbnailResult = await generateThumbnail(video.url, video.id);
-        await storage.updateVideoThumbnail(video.id, thumbnailResult.thumbnailPath, thumbnailResult.orientation);
-        
-        const updatedVideo = await storage.getVideo(video.id);
-        res.status(201).json(updatedVideo);
-      } catch (thumbnailError) {
-        console.error("Error generating thumbnail:", thumbnailError);
-        res.status(201).json(video);
-      }
+      res.status(201).json(video);
     } catch (error) {
       if (error instanceof Error) {
         res.status(400).json({ message: error.message });
@@ -146,53 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting video:", error);
       res.status(500).json({ message: "Failed to delete video" });
-    }
-  });
-
-  app.post("/api/videos/regenerate-thumbnails", async (req, res) => {
-    try {
-      const sessionId = req.cookies.adminSessionId;
-      
-      if (!sessionId) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      const session = await storage.getAdminSession(sessionId);
-      
-      if (!session) {
-        res.clearCookie('adminSessionId');
-        return res.status(401).json({ message: "Invalid or expired session" });
-      }
-
-      const { videoIds } = req.body;
-      const allVideosResult = await storage.getAllVideos({ limit: 1000 });
-      
-      let videosToProcess = allVideosResult.videos;
-      
-      if (videoIds && Array.isArray(videoIds)) {
-        videosToProcess = videosToProcess.filter(v => videoIds.includes(v.id));
-      }
-
-      const results = [];
-      for (const video of videosToProcess) {
-        try {
-          const thumbnailResult = await generateThumbnail(video.url, video.id);
-          await storage.updateVideoThumbnail(video.id, thumbnailResult.thumbnailPath, thumbnailResult.orientation);
-          results.push({ id: video.id, success: true, orientation: thumbnailResult.orientation });
-        } catch (error) {
-          console.error(`Error generating thumbnail for video ${video.id}:`, error);
-          results.push({ 
-            id: video.id, 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
-          });
-        }
-      }
-
-      res.json({ results });
-    } catch (error) {
-      console.error("Error regenerating thumbnails:", error);
-      res.status(500).json({ message: "Failed to regenerate thumbnails" });
     }
   });
 
@@ -281,29 +223,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking session:", error);
       res.status(500).json({ message: "Failed to check session" });
-    }
-  });
-
-  app.post("/api/admin/normalize-tags", async (req, res) => {
-    try {
-      const sessionId = req.cookies.adminSessionId;
-      
-      if (!sessionId) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      const session = await storage.getAdminSession(sessionId);
-      
-      if (!session) {
-        res.clearCookie('adminSessionId');
-        return res.status(401).json({ message: "Invalid or expired session" });
-      }
-
-      const result = await storage.normalizeTags();
-      res.json(result);
-    } catch (error) {
-      console.error("Error normalizing tags:", error);
-      res.status(500).json({ message: "Failed to normalize tags" });
     }
   });
 

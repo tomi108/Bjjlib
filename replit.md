@@ -4,28 +4,6 @@
 
 This is a full-stack video library management application built with React, Express, and PostgreSQL. The application allows users to organize, browse, and manage video content with tagging capabilities. It features a modern UI built with shadcn/ui components and follows a clean monorepo architecture with shared schemas between client and server.
 
-## Recent Changes (October 5, 2025)
-
-**Automatic Thumbnail Generation System:**
-- **Purpose**: Generate 16:9 landscape thumbnails from video URLs with special handling for vertical videos
-- **Implementation**:
-  - Added `thumbnail` (text) and `orientation` (text) fields to videos table schema
-  - Installed FFmpeg and fluent-ffmpeg for video processing
-  - Created `server/thumbnail-generator.ts` utility that:
-    - Fetches video metadata using FFprobe to determine orientation (vertical/horizontal)
-    - Extracts frame at 1 second from video start
-    - For vertical videos: crops height to create 16:9 ratio (`crop=in_w:in_w*9/16:0:(in_h-in_w*9/16)/2`), then scales to 800x450
-    - For horizontal videos: scales directly to 800x450
-    - Saves thumbnails to `/client/public/thumbnails/` directory
-  - Automatic thumbnail generation on video creation via POST /api/videos
-  - Batch regeneration endpoint: POST /api/videos/regenerate-thumbnails (admin only)
-  - Admin panel UI: "Regenerate All Thumbnails" button with loading state and success/failure notifications
-  - Frontend updated to display stored thumbnails with fallback to YouTube/Vimeo thumbnails
-- **Technical Notes**:
-  - Thumbnail generation failures don't block video creation
-  - Thumbnails stored as `/thumbnails/video-{id}-thumb.jpg` paths in database
-  - Frontend checks video.thumbnail first, then falls back to platform-specific thumbnails
-
 ## Recent Changes (October 3, 2025)
 
 **🔴 CRITICAL DATABASE FIX - Production Data Loss Issue Resolved:**
