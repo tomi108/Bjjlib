@@ -350,7 +350,7 @@ export default function Home() {
           {videosLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
-                <Card key={i} className="bg-gray-900 border-none">
+                <Card key={i} className="bg-gray-900 border-gray-800">
                   <div className="w-full h-48 bg-gray-800 animate-pulse" />
                   <CardContent className="p-4 space-y-2">
                     <div className="h-4 bg-gray-800 animate-pulse rounded" />
@@ -392,7 +392,7 @@ export default function Home() {
                         };
                         
                         return (
-                          <Card key={video.id} className="bg-gray-900 border-none overflow-hidden" data-testid={`video-card-${video.id}`}>
+                          <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
                             <div className="relative aspect-video w-full overflow-hidden group">
                               {embedUrl && thumbnailUrl ? (
                                 <>
