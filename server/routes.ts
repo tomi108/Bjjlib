@@ -285,27 +285,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const getPixelBrightness = (x: number, y: number): number => {
+      const isPixelBlackOrGray = (x: number, y: number): boolean => {
         const channels = info.channels;
         const index = (y * info.width + x) * channels;
         const r = data[index];
         const g = data[index + 1];
         const b = data[index + 2];
-        return (r + g + b) / 3;
+        
+        const maxChannel = Math.max(r, g, b);
+        const minChannel = Math.min(r, g, b);
+        const channelDiff = maxChannel - minChannel;
+        
+        return maxChannel < 30 && channelDiff < 15;
       };
 
       const isColumnBlack = (x: number): boolean => {
-        const sampleStep = 10;
-        let darkPixels = 0;
+        const sampleStep = 5;
+        let blackPixels = 0;
         let totalSamples = 0;
         
         for (let y = 0; y < info.height; y += sampleStep) {
-          const brightness = getPixelBrightness(x, y);
-          if (brightness < 25) darkPixels++;
+          if (isPixelBlackOrGray(x, y)) blackPixels++;
           totalSamples++;
         }
         
-        return totalSamples >= 5 && darkPixels / totalSamples > 0.8;
+        return totalSamples >= 10 && blackPixels / totalSamples > 0.8;
       };
 
       let leftBarWidth = 0;

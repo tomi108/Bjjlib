@@ -64,24 +64,32 @@ function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
 }
 
-async function detectAndCropBlackBars(img: HTMLImageElement): Promise<void> {
+async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string): Promise<void> {
   try {
     const thumbnailUrl = img.src;
     
     const response = await fetch(`/api/analyze-thumbnail?url=${encodeURIComponent(thumbnailUrl)}`);
-    if (!response.ok) return;
+    if (!response.ok) {
+      console.log(`[${videoTitle}] Analysis failed: ${response.status}`);
+      return;
+    }
     
     const data = await response.json();
     const { leftBar, rightBar, totalPercent } = data;
+    
+    console.log(`[${videoTitle}] Detected bars - Left: ${leftBar.toFixed(1)}%, Right: ${rightBar.toFixed(1)}%, Total: ${totalPercent.toFixed(1)}%`);
     
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
       img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
       img.style.transform = `scale(${scale})`;
       img.style.objectPosition = 'center';
+      console.log(`[${videoTitle}] Applied cropping - clipPath: inset(0 ${rightBar}% 0 ${leftBar}%), scale: ${scale.toFixed(2)}`);
+    } else {
+      console.log(`[${videoTitle}] No cropping needed (bars <= 5%)`);
     }
   } catch (error) {
-    console.error('Error detecting black bars:', error);
+    console.error(`[${videoTitle}] Error detecting black bars:`, error);
   }
 }
 
@@ -408,7 +416,12 @@ export default function Home() {
                           const img = e.currentTarget;
                           const currentSrc = img.src;
                           
-                          if (!youtubeVideoId) return;
+                          if (currentSrc.startsWith('data:')) return;
+                          
+                          if (!youtubeVideoId) {
+                            img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"%3E%3Crect fill="%23374151" width="640" height="360"/%3E%3Cpath fill="%236B7280" d="M320 120l100 60-100 60z"/%3E%3C/svg%3E';
+                            return;
+                          }
                           
                           if (currentSrc.includes('/hq2.jpg')) {
                             img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq1.jpg`;
@@ -419,7 +432,7 @@ export default function Home() {
                           } else if (currentSrc.includes('/maxresdefault.jpg')) {
                             img.src = `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`;
                           } else {
-                            img.style.display = 'none';
+                            img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"%3E%3Crect fill="%23374151" width="640" height="360"/%3E%3Cpath fill="%236B7280" d="M320 120l100 60-100 60z"/%3E%3C/svg%3E';
                           }
                         };
                         
@@ -456,7 +469,7 @@ export default function Home() {
                                     alt={video.title}
                                     className="block absolute top-0 left-0 w-full h-full object-cover object-center"
                                     onError={handleThumbnailError}
-                                    onLoad={(e) => detectAndCropBlackBars(e.currentTarget)}
+                                    onLoad={(e) => detectAndCropBlackBars(e.currentTarget, video.title)}
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
