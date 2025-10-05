@@ -6,6 +6,13 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
+**October 5, 2025 - Video Thumbnail Display Fix:**
+- Fixed vertical video thumbnails showing black bars on the sides
+- Removed problematic `scale-[2.2]` zoom class from thumbnail images in home.tsx
+- Added `block` class to ensure proper display styling
+- Thumbnails now use `object-fit: cover` effectively to fill containers without distortion
+- Both vertical and horizontal video thumbnails now display correctly without black borders
+
 **October 5, 2025 - TypeScript Error Fixes:**
 - Fixed TypeScript errors in VideoCard component
 - Updated VideoCard to use `VideoWithTags` type instead of `Video` type to properly support tags
