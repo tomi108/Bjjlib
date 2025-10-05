@@ -174,6 +174,28 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
     },
   });
 
+  const normalizeTagsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/normalize-tags", {});
+      return response.json();
+    },
+    onSuccess: (data: { merged: number; updated: number }) => {
+      toast({
+        title: "Tags normalized successfully",
+        description: `Merged ${data.merged} duplicate tags and updated ${data.updated} tag names`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error normalizing tags",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const addTag = (tagName: string) => {
     const normalizedTag = tagName.toLowerCase().trim();
     if (normalizedTag && !selectedTags.includes(normalizedTag)) {
@@ -237,7 +259,23 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <Button
+          onClick={() => normalizeTagsMutation.mutate()}
+          variant="outline"
+          className="border-gray-700 hover:bg-gray-800"
+          disabled={normalizeTagsMutation.isPending}
+          data-testid="button-normalize-tags"
+        >
+          {normalizeTagsMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Normalizing...
+            </>
+          ) : (
+            "Normalize Tags"
+          )}
+        </Button>
         <Button
           onClick={() => logoutMutation.mutate()}
           variant="outline"
