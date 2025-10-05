@@ -295,11 +295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const maxChannel = Math.max(r, g, b);
         const minChannel = Math.min(r, g, b);
         const channelDiff = maxChannel - minChannel;
-        const brightness = (r + g + b) / 3;
         
-        const saturationRatio = channelDiff / Math.max(brightness, 1);
-        
-        return maxChannel < 50 && channelDiff < 10 && saturationRatio < 0.25;
+        return maxChannel < 60 && channelDiff < 15;
       };
 
       const isColumnBlack = (x: number): boolean => {
@@ -312,7 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalSamples++;
         }
         
-        return totalSamples >= 10 && blackPixels / totalSamples > 0.8;
+        const ratio = blackPixels / totalSamples;
+        return totalSamples >= 10 && ratio > 0.65;
       };
 
       let leftBarWidth = 0;
