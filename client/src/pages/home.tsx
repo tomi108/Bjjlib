@@ -410,9 +410,10 @@ export default function Home() {
                                     className="absolute top-0 left-0 w-full h-full object-cover"
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
+                                  <div className="absolute inset-0 bg-black/20" />
                                   <button
                                     onClick={handlePlayClick}
-                                    className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
                                     data-testid={`play-button-${video.id}`}
                                   >
                                     <div className="w-7 h-7 rounded-full bg-blue-600 hover:bg-blue-700 hover:scale-110 flex items-center justify-center transition-all shadow-lg">
