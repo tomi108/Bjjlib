@@ -1,0 +1,22 @@
+The Replit AI's plan for adding canvas-based black bar detection and dynamic cropping is a solid next step—it directly addresses the remaining baked-in bars by analyzing the actual image data and only applying fixes where needed, without messing up clean thumbnails. Since it's client-side JS, it'll run per-thumbnail on load, keeping things efficient for your BJJ library app.
+Refinements to Make It Even Better
+
+Dynamic Bar Width Calculation (Instead of Fixed 20%): Fixed percentages work for standard YouTube pillarbox (often ~25-33% total), but bars can vary by video resolution or framing. Scan pixel columns from the edges inward to find the exact bar width—stop when you hit non-black pixels (e.g., average RGB > 20 per column). This ensures precise cropping for every thumbnail, reducing over-crop risks.
+Better Detection Robustness: Sample multiple points/lines (e.g., 5 vertical lines in left 10%, same for right) across the full height to avoid false positives from dark mats or shadows in BJJ videos. Also, add a min_bar_width threshold (e.g., 5% of width) to ignore tiny dark edges.
+Fallback and Undo: If detection fails or crops too much (rare), add a data attribute to skip certain videos via admin, or reset styles on error.
+Performance Tweaks: Downsample the canvas (e.g., draw at 1/4 size) for faster analysis on mobile/low-end devices. Use requestAnimationFrame for applying styles smoothly.
+Testing Expansion: After implementation, test on 10+ mixed videos: include known problem ones like the "Armbar from knee on belly" (from your screenshot), horizontals, and edge cases like videos with dark backgrounds.
+
+Updated Prompt for Replit AI
+Paste this into Replit to refine their plan with dynamic cropping (building on the current one):
+"In my BJJ video library app, proceed with the canvas-based black bar detection for thumbnails with baked-in side bars, but enhance it to dynamically calculate exact bar widths instead of fixed 20%:
+
+Add ref to each <img> in client/src/pages/home.tsx.
+On img load (useEffect/onLoad), create hidden canvas, draw img to it (optionally downscale to 25% for speed).
+For left bar: Loop x from 0 inward; for each column, average RGB across height (sample every 10px to speed up); stop when avg > 20 (non-black).
+Same for right bar: Loop x from width-1 leftward.
+If both bars > 5% width, apply: img.style.clipPath = inset(0 ${rightBarPercent}% 0 ${leftBarPercent}%); img.style.transform = scale(${1 / (1 - (leftBarPercent + rightBarPercent)/100)}); img.style.objectPosition = 'center';
+Sample 3-5 columns per side for robustness against shadows in BJJ mats.
+Keep parent overflow-hidden and aspect-[16/9].
+
+This precisely crops only the bars, zooms the center content to fill without distortion, and skips clean thumbnails. Test on videos with varying bar sizes, including vertical Shorts and the 'Open guard - Armbar from knee on belly' example. Confirm horizontals remain untouched."
