@@ -40,11 +40,7 @@ function getThumbnailUrl(url: string): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     const videoId = youtubeMatch[1];
-    if (isYouTubeShort(url)) {
-      return `https://i.ytimg.com/vi/${videoId}/hq2.jpg`;
-    } else {
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    }
+    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
@@ -415,14 +411,18 @@ export default function Home() {
                             return;
                           }
                           
-                          if (currentSrc.includes('/hq2.jpg')) {
-                            img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq1.jpg`;
-                          } else if (currentSrc.includes('/hq1.jpg')) {
-                            img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq3.jpg`;
-                          } else if (currentSrc.includes('/hq3.jpg')) {
-                            img.src = `https://img.youtube.com/vi/${youtubeVideoId}/maxresdefault.jpg`;
-                          } else if (currentSrc.includes('/maxresdefault.jpg')) {
+                          const isShort = isYouTubeShort(video.url);
+                          
+                          if (currentSrc.includes('/maxresdefault.jpg')) {
+                            img.src = `https://img.youtube.com/vi/${youtubeVideoId}/sddefault.jpg`;
+                          } else if (currentSrc.includes('/sddefault.jpg')) {
                             img.src = `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`;
+                          } else if (currentSrc.includes('/hqdefault.jpg')) {
+                            if (isShort) {
+                              img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq2.jpg`;
+                            } else {
+                              img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"%3E%3Crect fill="%23374151" width="640" height="360"/%3E%3Cpath fill="%236B7280" d="M320 120l100 60-100 60z"/%3E%3C/svg%3E';
+                            }
                           } else {
                             img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"%3E%3Crect fill="%23374151" width="640" height="360"/%3E%3Cpath fill="%236B7280" d="M320 120l100 60-100 60z"/%3E%3C/svg%3E';
                           }

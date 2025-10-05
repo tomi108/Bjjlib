@@ -6,15 +6,16 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
-**October 5, 2025 - Server-Side Pixel Analysis for Black Bar Detection:**
-- Implemented intelligent thumbnail selection based on video type to eliminate black bars on Shorts while preserving quality for regular videos
+**October 5, 2025 - High-Resolution Thumbnails with Dark Border Detection:**
+- **Updated thumbnail quality system**: All videos now use high-resolution `maxresdefault.jpg` (1280x720) as primary source
+- Universal fallback chain for optimal quality and reliability:
+  1. `maxresdefault.jpg` (1280x720) - Primary for ALL videos (regular and Shorts)
+  2. `sddefault.jpg` (640x480) - First fallback for better quality
+  3. `hqdefault.jpg` (480x360) - Second fallback
+  4. `hq2.jpg` (frame-based) - Last resort for Shorts/verticals only
+  5. SVG placeholder with play icon - Final fallback for complete failures
+- Eliminates fuzzy thumbnails by prioritizing highest available resolution
 - Added `isYouTubeShort()` detection function that checks for `/shorts/` in URL
-- **YouTube Shorts**: Use frame-based thumbnails (`hq2.jpg`) that capture actual video frames without YouTube's letterboxing
-- **Regular YouTube videos**: Use high-quality `maxresdefault.jpg` (1920x1080) for sharp thumbnails
-- Implemented cascading fallback system with `handleThumbnailError()`:
-  - Shorts: hq2.jpg → hq1.jpg → hq3.jpg → maxresdefault.jpg → hqdefault.jpg
-  - Regular videos: maxresdefault.jpg → hqdefault.jpg
-  - Fallback to SVG placeholder with play icon for 404/failed thumbnails
 - **Server-Side Pixel Analysis for Dark Border Detection (✅ WORKING)**: 
   - Created `/api/analyze-thumbnail` endpoint using Sharp.js for accurate pixel-based detection
   - Bypasses CORS restrictions by fetching and analyzing images server-side
