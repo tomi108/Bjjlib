@@ -393,13 +393,13 @@ export default function Home() {
                         
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div className="relative w-full overflow-hidden group" style={{ paddingBottom: "56.25%" }}>
+                            <div className="relative aspect-video w-full overflow-hidden group">
                               {embedUrl && thumbnailUrl ? (
                                 <>
                                   <img
                                     src={thumbnailUrl}
                                     alt={video.title}
-                                    className="absolute top-0 left-0 w-full h-full object-cover"
+                                    className="w-full h-full object-cover"
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
@@ -413,7 +413,7 @@ export default function Home() {
                                   </button>
                                 </>
                               ) : (
-                                <div className="absolute top-0 left-0 w-full h-full bg-gray-800 flex items-center justify-center">
+                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                                   <div className="text-center p-4">
                                     <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                                     {isICloud ? (

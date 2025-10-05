@@ -475,7 +475,37 @@ export class DbStorage implements IStorage {
         );
         
         for (const vt of videoTagsToUpdate) {
-          try {
+          const conflictQuery = db
+            .select()
+            .from(videoTags)
+            .where(
+              and(
+                eq(videoTags.videoId, vt.videoId),
+                eq(videoTags.tagId, canonical.id)
+              )
+            );
+          
+          const hasConflict = dbGet(
+            isPostgres ? await conflictQuery : conflictQuery.get()
+          );
+          
+          if (hasConflict) {
+            if (isPostgres) {
+              await db.delete(videoTags).where(
+                and(
+                  eq(videoTags.videoId, vt.videoId),
+                  eq(videoTags.tagId, duplicateTag.id)
+                )
+              );
+            } else {
+              db.delete(videoTags).where(
+                and(
+                  eq(videoTags.videoId, vt.videoId),
+                  eq(videoTags.tagId, duplicateTag.id)
+                )
+              ).run();
+            }
+          } else {
             if (isPostgres) {
               await db.update(videoTags)
                 .set({ tagId: canonical.id })
@@ -495,22 +525,6 @@ export class DbStorage implements IStorage {
                   )
                 )
                 .run();
-            }
-          } catch (error) {
-            if (isPostgres) {
-              await db.delete(videoTags).where(
-                and(
-                  eq(videoTags.videoId, vt.videoId),
-                  eq(videoTags.tagId, duplicateTag.id)
-                )
-              );
-            } else {
-              db.delete(videoTags).where(
-                and(
-                  eq(videoTags.videoId, vt.videoId),
-                  eq(videoTags.tagId, duplicateTag.id)
-                )
-              ).run();
             }
           }
         }

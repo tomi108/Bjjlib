@@ -226,6 +226,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/normalize-tags", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+
+      const result = await storage.normalizeTags();
+      res.json(result);
+    } catch (error) {
+      console.error("Error normalizing tags:", error);
+      res.status(500).json({ message: "Failed to normalize tags" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
