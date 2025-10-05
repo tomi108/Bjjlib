@@ -32,10 +32,19 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   return null;
 }
 
+function isYouTubeShort(url: string): boolean {
+  return url.includes('/shorts/');
+}
+
 function getThumbnailUrl(url: string): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
-    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+    const videoId = youtubeMatch[1];
+    if (isYouTubeShort(url)) {
+      return `https://i.ytimg.com/vi/${videoId}/hq2.jpg`;
+    } else {
+      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
@@ -44,6 +53,11 @@ function getThumbnailUrl(url: string): string | null {
   }
 
   return null;
+}
+
+function getYouTubeVideoId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
 }
 
 function isICloudUrl(url: string): boolean {
@@ -366,7 +380,27 @@ export default function Home() {
                         const embedUrl = getEmbedUrl(video.url);
                         const embedUrlWithAutoplay = getEmbedUrl(video.url, true);
                         const thumbnailUrl = getThumbnailUrl(video.url);
+                        const youtubeVideoId = getYouTubeVideoId(video.url);
                         const isICloud = isICloudUrl(video.url);
+                        
+                        const handleThumbnailError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+                          const img = e.currentTarget;
+                          const currentSrc = img.src;
+                          
+                          if (!youtubeVideoId) return;
+                          
+                          if (currentSrc.includes('/hq2.jpg')) {
+                            img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq1.jpg`;
+                          } else if (currentSrc.includes('/hq1.jpg')) {
+                            img.src = `https://i.ytimg.com/vi/${youtubeVideoId}/hq3.jpg`;
+                          } else if (currentSrc.includes('/hq3.jpg')) {
+                            img.src = `https://img.youtube.com/vi/${youtubeVideoId}/maxresdefault.jpg`;
+                          } else if (currentSrc.includes('/maxresdefault.jpg')) {
+                            img.src = `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`;
+                          } else {
+                            img.style.display = 'none';
+                          }
+                        };
                         
                         const handlePlayClick = () => {
                           if (!embedUrlWithAutoplay) return;
@@ -393,13 +427,14 @@ export default function Home() {
                         
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
-                            <div className="relative w-full overflow-hidden group" style={{ paddingBottom: "56.25%" }}>
+                            <div className="relative w-full overflow-hidden group aspect-[16/9]">
                               {embedUrl && thumbnailUrl ? (
                                 <>
                                   <img
                                     src={thumbnailUrl}
                                     alt={video.title}
                                     className="block absolute top-0 left-0 w-full h-full object-cover object-center"
+                                    onError={handleThumbnailError}
                                     data-testid={`video-thumbnail-${video.id}`}
                                   />
                                   <button
