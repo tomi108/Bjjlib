@@ -237,6 +237,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing url parameter" });
       }
 
+      const allowedHosts = [
+        'i.ytimg.com',
+        'img.youtube.com',
+        'i.vimeocdn.com',
+        'vumbnail.com'
+      ];
+
+      let url: URL;
+      try {
+        url = new URL(thumbnailUrl);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL" });
+      }
+
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return res.status(400).json({ message: "Only HTTP/HTTPS URLs allowed" });
+      }
+
+      if (!allowedHosts.includes(url.hostname)) {
+        return res.status(400).json({ message: "URL host not allowed" });
+      }
+
       if (thumbnailAnalysisCache.has(thumbnailUrl)) {
         return res.json(thumbnailAnalysisCache.get(thumbnailUrl));
       }

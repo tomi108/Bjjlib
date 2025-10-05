@@ -64,22 +64,21 @@ function isICloudUrl(url: string): boolean {
   return url.includes('icloud.com');
 }
 
-function detectAndCropBlackBars(img: HTMLImageElement): void {
+async function detectAndCropBlackBars(img: HTMLImageElement): Promise<void> {
   try {
-    if (!img.naturalWidth || !img.naturalHeight) return;
+    const thumbnailUrl = img.src;
     
-    const aspectRatio = img.naturalWidth / img.naturalHeight;
-    const targetAspectRatio = 16 / 9;
+    const response = await fetch(`/api/analyze-thumbnail?url=${encodeURIComponent(thumbnailUrl)}`);
+    if (!response.ok) return;
     
-    if (aspectRatio < targetAspectRatio * 0.95) {
-      const barPercent = ((1 - aspectRatio / targetAspectRatio) / 2) * 100;
-      
-      if (barPercent > 5) {
-        const scale = targetAspectRatio / aspectRatio;
-        img.style.clipPath = `inset(0 ${barPercent}% 0 ${barPercent}%)`;
-        img.style.transform = `scale(${scale})`;
-        img.style.objectPosition = 'center';
-      }
+    const data = await response.json();
+    const { leftBar, rightBar, totalPercent } = data;
+    
+    if (totalPercent > 5) {
+      const scale = 100 / (100 - totalPercent);
+      img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      img.style.transform = `scale(${scale})`;
+      img.style.objectPosition = 'center';
     }
   } catch (error) {
     console.error('Error detecting black bars:', error);
