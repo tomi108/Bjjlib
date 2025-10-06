@@ -292,50 +292,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const isPixelDarkBorder = (x: number, y: number): boolean => {
+      const getPixelBrightness = (x: number, y: number): number => {
         const channels = info.channels;
         const index = (y * info.width + x) * channels;
         const r = data[index];
         const g = data[index + 1];
         const b = data[index + 2];
-        
-        const maxChannel = Math.max(r, g, b);
-        const minChannel = Math.min(r, g, b);
-        const channelDiff = maxChannel - minChannel;
-        const brightness = (r + g + b) / 3;
-        
-        return brightness < 50 || (maxChannel < 60 && channelDiff < 15);
+        return (r + g + b) / 3;
       };
 
-      const isColumnDark = (x: number): boolean => {
+      const analyzeRegion = (startX: number, endX: number): { mean: number; variance: number } => {
         const sampleStep = 5;
-        let darkPixels = 0;
-        let totalSamples = 0;
+        const brightnessValues: number[] = [];
         
-        for (let y = 0; y < info.height; y += sampleStep) {
-          if (isPixelDarkBorder(x, y)) darkPixels++;
-          totalSamples++;
+        for (let x = startX; x < endX; x += 2) {
+          for (let y = 0; y < info.height; y += sampleStep) {
+            brightnessValues.push(getPixelBrightness(x, y));
+          }
         }
         
-        const ratio = darkPixels / totalSamples;
-        return totalSamples >= 10 && ratio > 0.65;
+        const mean = brightnessValues.reduce((sum, val) => sum + val, 0) / brightnessValues.length;
+        const variance = brightnessValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / brightnessValues.length;
+        
+        return { mean, variance };
       };
 
+      const leftEdgeEnd = Math.floor(info.width * 0.15);
+      const middleStart = Math.floor(info.width * 0.20);
+      const middleEnd = Math.floor(info.width * 0.80);
+      const rightEdgeStart = Math.floor(info.width * 0.85);
+
+      const leftEdge = analyzeRegion(0, leftEdgeEnd);
+      const middle = analyzeRegion(middleStart, middleEnd);
+      const rightEdge = analyzeRegion(rightEdgeStart, info.width);
+
+      const varianceThreshold = 200;
+      const brightnessThreshold = 30;
+
       let leftBarWidth = 0;
-      for (let x = 0; x < info.width * 0.4; x++) {
-        if (isColumnDark(x)) {
-          leftBarWidth = x + 1;
-        } else {
-          break;
+      if (leftEdge.variance < varianceThreshold && Math.abs(leftEdge.mean - middle.mean) > brightnessThreshold) {
+        for (let x = 0; x < info.width * 0.4; x++) {
+          const columnBrightness: number[] = [];
+          for (let y = 0; y < info.height; y += 5) {
+            columnBrightness.push(getPixelBrightness(x, y));
+          }
+          const columnMean = columnBrightness.reduce((sum, val) => sum + val, 0) / columnBrightness.length;
+          
+          if (Math.abs(columnMean - leftEdge.mean) < 20) {
+            leftBarWidth = x + 1;
+          } else {
+            break;
+          }
         }
       }
 
       let rightBarWidth = 0;
-      for (let x = info.width - 1; x > info.width * 0.6; x--) {
-        if (isColumnDark(x)) {
-          rightBarWidth = info.width - x;
-        } else {
-          break;
+      if (rightEdge.variance < varianceThreshold && Math.abs(rightEdge.mean - middle.mean) > brightnessThreshold) {
+        for (let x = info.width - 1; x > info.width * 0.6; x--) {
+          const columnBrightness: number[] = [];
+          for (let y = 0; y < info.height; y += 5) {
+            columnBrightness.push(getPixelBrightness(x, y));
+          }
+          const columnMean = columnBrightness.reduce((sum, val) => sum + val, 0) / columnBrightness.length;
+          
+          if (Math.abs(columnMean - rightEdge.mean) < 20) {
+            rightBarWidth = info.width - x;
+          } else {
+            break;
+          }
         }
       }
 
