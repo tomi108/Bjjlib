@@ -405,8 +405,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let rightBarPercent = (rightBarWidth / info.width) * 100;
       const totalBarPercent = leftBarPercent + rightBarPercent;
 
+      // Symmetry correction: if one side has significant bars (>25%) and the other is minimal (<5%),
+      // mirror the bars to both sides (common for vertical videos cropped asymmetrically)
+      let symmetryCorrected = false;
+      if (leftBarPercent > 25 && rightBarPercent < 5) {
+        rightBarPercent = leftBarPercent;
+        symmetryCorrected = true;
+      } else if (rightBarPercent > 25 && leftBarPercent < 5) {
+        leftBarPercent = rightBarPercent;
+        symmetryCorrected = true;
+      }
+
       // Add 1.5% buffer crop to each side that has bars, only if total bars >5%
-      if (totalBarPercent > 5) {
+      const totalAfterSymmetry = leftBarPercent + rightBarPercent;
+      if (totalAfterSymmetry > 5) {
         if (leftBarPercent > 0) leftBarPercent += 1.5;
         if (rightBarPercent > 0) rightBarPercent += 1.5;
       }
@@ -420,6 +432,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log analysis details
       console.log(`[Thumbnail Analysis] URL: ${thumbnailUrl}`);
       console.log(`  Center variance: ${centerAvgVariance.toFixed(2)}, RGB: (${centerAvgR.toFixed(0)}, ${centerAvgG.toFixed(0)}, ${centerAvgB.toFixed(0)})`);
+      if (symmetryCorrected) {
+        console.log(`  Symmetry correction applied - mirrored bars to both sides`);
+      }
       console.log(`  Detected bars - Left: ${leftBarPercent.toFixed(1)}%, Right: ${rightBarPercent.toFixed(1)}%, Total: ${result.totalPercent.toFixed(1)}%`);
 
       thumbnailAnalysisCache.set(thumbnailUrl, result);
