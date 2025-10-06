@@ -450,7 +450,7 @@ export default function Home() {
                           
                           const closeBtn = document.createElement('button');
                           closeBtn.innerHTML = '✕';
-                          closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;z-index:10000;background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;';
+                          closeBtn.style.cssText = 'position:absolute;top:80px;right:20px;z-index:10000;background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;';
                           closeBtn.onclick = () => document.body.removeChild(fullscreenDiv);
                           
                           const iframe = document.createElement('iframe');
