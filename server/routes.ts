@@ -292,62 +292,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const isPixelDarkBorder = (x: number, y: number): boolean => {
+      // Helper: Calculate RGB variance (std dev) for a column
+      const calculateColumnVariance = (x: number): { variance: number; avgR: number; avgG: number; avgB: number } => {
         const channels = info.channels;
-        const index = (y * info.width + x) * channels;
-        const r = data[index];
-        const g = data[index + 1];
-        const b = data[index + 2];
-        
-        const maxChannel = Math.max(r, g, b);
-        const minChannel = Math.min(r, g, b);
-        const channelDiff = maxChannel - minChannel;
-        const brightness = (r + g + b) / 3;
-        
-        return brightness < 50 || (maxChannel < 60 && channelDiff < 15);
-      };
-
-      const isColumnDark = (x: number): boolean => {
         const sampleStep = 5;
-        let darkPixels = 0;
-        let totalSamples = 0;
+        const samples: { r: number; g: number; b: number }[] = [];
         
         for (let y = 0; y < info.height; y += sampleStep) {
-          if (isPixelDarkBorder(x, y)) darkPixels++;
-          totalSamples++;
+          const index = (y * info.width + x) * channels;
+          samples.push({
+            r: data[index],
+            g: data[index + 1],
+            b: data[index + 2]
+          });
         }
         
-        const ratio = darkPixels / totalSamples;
-        return totalSamples >= 10 && ratio > 0.65;
+        if (samples.length < 10) {
+          return { variance: 0, avgR: 0, avgG: 0, avgB: 0 };
+        }
+        
+        // Calculate average RGB
+        const avgR = samples.reduce((sum, s) => sum + s.r, 0) / samples.length;
+        const avgG = samples.reduce((sum, s) => sum + s.g, 0) / samples.length;
+        const avgB = samples.reduce((sum, s) => sum + s.b, 0) / samples.length;
+        
+        // Calculate RGB variance (average of channel variances)
+        const varR = samples.reduce((sum, s) => sum + Math.pow(s.r - avgR, 2), 0) / samples.length;
+        const varG = samples.reduce((sum, s) => sum + Math.pow(s.g - avgG, 2), 0) / samples.length;
+        const varB = samples.reduce((sum, s) => sum + Math.pow(s.b - avgB, 2), 0) / samples.length;
+        const variance = Math.sqrt((varR + varG + varB) / 3);
+        
+        return { variance, avgR, avgG, avgB };
+      };
+      
+      // Calculate center region stats (middle 40%)
+      const centerStart = Math.floor(info.width * 0.3);
+      const centerEnd = Math.floor(info.width * 0.7);
+      let centerVarianceSum = 0;
+      let centerRSum = 0, centerGSum = 0, centerBSum = 0;
+      let centerColumns = 0;
+      
+      for (let x = centerStart; x < centerEnd; x += 3) { // Sample every 3rd column for efficiency
+        const stats = calculateColumnVariance(x);
+        centerVarianceSum += stats.variance;
+        centerRSum += stats.avgR;
+        centerGSum += stats.avgG;
+        centerBSum += stats.avgB;
+        centerColumns++;
+      }
+      
+      const centerAvgVariance = centerVarianceSum / centerColumns;
+      const centerAvgR = centerRSum / centerColumns;
+      const centerAvgG = centerGSum / centerColumns;
+      const centerAvgB = centerBSum / centerColumns;
+      
+      // Helper: Check if column is a bar (uniform + different from center)
+      const isColumnBar = (x: number): boolean => {
+        const stats = calculateColumnVariance(x);
+        
+        // Column must be uniform (low variance)
+        if (stats.variance >= 30) {
+          return false;
+        }
+        
+        // Calculate RGB distance from center
+        const rgbDistance = Math.sqrt(
+          Math.pow(stats.avgR - centerAvgR, 2) +
+          Math.pow(stats.avgG - centerAvgG, 2) +
+          Math.pow(stats.avgB - centerAvgB, 2)
+        );
+        
+        // Column is bar if: uniform AND (differs from center OR center has detail)
+        return rgbDistance > 35 || centerAvgVariance > 65;
       };
 
+      // Measure left bar (outer 30% of width)
       let leftBarWidth = 0;
-      for (let x = 0; x < info.width * 0.4; x++) {
-        if (isColumnDark(x)) {
+      const leftEdgeEnd = Math.floor(info.width * 0.3);
+      for (let x = 0; x < leftEdgeEnd; x++) {
+        if (isColumnBar(x)) {
           leftBarWidth = x + 1;
         } else {
           break;
         }
       }
 
+      // Measure right bar (outer 30% of width)
       let rightBarWidth = 0;
-      for (let x = info.width - 1; x > info.width * 0.6; x--) {
-        if (isColumnDark(x)) {
+      const rightEdgeStart = Math.floor(info.width * 0.7);
+      for (let x = info.width - 1; x >= rightEdgeStart; x--) {
+        if (isColumnBar(x)) {
           rightBarWidth = info.width - x;
         } else {
           break;
         }
       }
 
-      const leftBarPercent = (leftBarWidth / info.width) * 100;
-      const rightBarPercent = (rightBarWidth / info.width) * 100;
+      let leftBarPercent = (leftBarWidth / info.width) * 100;
+      let rightBarPercent = (rightBarWidth / info.width) * 100;
       const totalBarPercent = leftBarPercent + rightBarPercent;
+
+      // Add 1.5% buffer crop to each side if bars detected >5%
+      if (totalBarPercent > 5) {
+        leftBarPercent += 1.5;
+        rightBarPercent += 1.5;
+      }
 
       const result = {
         leftBar: leftBarPercent,
         rightBar: rightBarPercent,
-        totalPercent: totalBarPercent
+        totalPercent: leftBarPercent + rightBarPercent
       };
+
+      // Log analysis details
+      console.log(`[Thumbnail Analysis] URL: ${thumbnailUrl}`);
+      console.log(`  Center variance: ${centerAvgVariance.toFixed(2)}, RGB: (${centerAvgR.toFixed(0)}, ${centerAvgG.toFixed(0)}, ${centerAvgB.toFixed(0)})`);
+      console.log(`  Detected bars - Left: ${leftBarPercent.toFixed(1)}%, Right: ${rightBarPercent.toFixed(1)}%, Total: ${result.totalPercent.toFixed(1)}%`);
 
       thumbnailAnalysisCache.set(thumbnailUrl, result);
 
