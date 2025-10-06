@@ -20,7 +20,7 @@ function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     const autoplayParam = autoplay ? '&autoplay=1' : '';
-    return `https://www.youtube.com/embed/${youtubeMatch[1]}?modestbranding=1&rel=0&showinfo=0&vq=highres${autoplayParam}`;
+    return `https://www.youtube.com/embed/${youtubeMatch[1]}?modestbranding=1&rel=0&showinfo=0${autoplayParam}`;
   }
 
   const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
