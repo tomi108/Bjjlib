@@ -326,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const middle = analyzeRegion(middleStart, middleEnd);
       const rightEdge = analyzeRegion(rightEdgeStart, info.width);
 
-      const varianceThreshold = 200;
+      const varianceThreshold = 400;
       const brightnessThreshold = 30;
 
       let leftBarWidth = 0;
