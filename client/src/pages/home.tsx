@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Pencil } from "lucide-react";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { AdminTab } from "@/components/admin-tab";
+import { VideoPlayerModal } from "@/components/video-player-modal";
 import {
   Dialog,
   DialogContent,
@@ -119,6 +120,9 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState("");
 
   const handleLogin = async () => {
     if (!loginPassword) {
@@ -445,24 +449,9 @@ export default function Home() {
                         const handlePlayClick = () => {
                           if (!embedUrlWithAutoplay) return;
                           
-                          const fullscreenDiv = document.createElement('div');
-                          fullscreenDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:black;z-index:9999;';
-                          
-                          const closeBtn = document.createElement('button');
-                          closeBtn.innerHTML = '✕';
-                          closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;z-index:10000;background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;';
-                          closeBtn.onclick = () => document.body.removeChild(fullscreenDiv);
-                          
-                          const iframe = document.createElement('iframe');
-                          iframe.src = embedUrlWithAutoplay;
-                          iframe.style.cssText = 'width:100%;height:100%;border:none;';
-                          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                          iframe.allowFullscreen = true;
-                          iframe.setAttribute('playsinline', 'true');
-                          
-                          fullscreenDiv.appendChild(closeBtn);
-                          fullscreenDiv.appendChild(iframe);
-                          document.body.appendChild(fullscreenDiv);
+                          setCurrentVideoId(youtubeVideoId);
+                          setCurrentVideoUrl(embedUrlWithAutoplay);
+                          setVideoPlayerOpen(true);
                         };
                         
                         return (
@@ -643,6 +632,13 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <VideoPlayerModal 
+        open={videoPlayerOpen}
+        onOpenChange={setVideoPlayerOpen}
+        videoId={currentVideoId}
+        videoUrl={currentVideoUrl}
+      />
     </div>
   );
 }
