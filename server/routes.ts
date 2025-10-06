@@ -236,6 +236,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const thumbnailAnalysisCache = new Map<string, { leftBar: number; rightBar: number; totalPercent: number }>();
 
+  // Clear cache endpoint (for testing/debugging)
+  app.post("/api/clear-thumbnail-cache", (_req, res) => {
+    const size = thumbnailAnalysisCache.size;
+    thumbnailAnalysisCache.clear();
+    console.log(`[Cache] Cleared ${size} thumbnail analysis entries`);
+    res.json({ message: `Cleared ${size} cached analyses` });
+  });
+
   app.get("/api/analyze-thumbnail", async (req, res) => {
     try {
       const thumbnailUrl = req.query.url as string;
