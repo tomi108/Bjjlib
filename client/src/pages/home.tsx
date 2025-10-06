@@ -72,7 +72,7 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     
     if (totalPercent > 5) {
       const originalScale = 100 / (100 - totalPercent);
-      const dynamicMultiplier = totalPercent > 50 ? 1.18 : 1.13;
+      const dynamicMultiplier = totalPercent > 50 ? 1.15 : 1.1;
       const finalScale = originalScale * dynamicMultiplier;
       
       console.log(`[${videoTitle}] Bars: ${leftBar.toFixed(1)}% + ${rightBar.toFixed(1)}% = ${totalPercent.toFixed(1)}% | Original scale: ${originalScale.toFixed(3)} | Multiplier: ${dynamicMultiplier}x | Final scale: ${finalScale.toFixed(3)}`);
