@@ -6,6 +6,24 @@ This is a full-stack video library management application built with React, Expr
 
 ## Recent Changes
 
+**October 6, 2025 - Dynamic Over-Zoom for Border Elimination:**
+- **Implemented dynamic over-zoom multipliers** to completely eliminate residual borders on cropped thumbnails
+- **Severity-based scaling**: Automatically adjusts zoom based on detected bar percentage:
+  - **Severe bars (>50% total)**: Uses 1.15x over-zoom (15% extra enlargement)
+    - Example: 63% bars → original scale 2.703 → final scale **3.108** (1.15x)
+    - Targets vertical/portrait content forced into 16:9 (e.g., "Open guard - Armbar", "Guard - Kimura & Bravo lapel")
+  - **Moderate bars (5-50% total)**: Uses 1.1x over-zoom (10% extra enlargement)
+    - Example: 21% bars → original scale 1.273 → final scale **1.400** (1.1x)
+    - Gentler zoom to avoid accidentally cropping important content
+  - **No bars (≤5% total)**: No over-zoom applied (0% bars detected)
+- **Technical implementation**:
+  - Frontend logic in `detectAndCropBlackBars()` (client/src/pages/home.tsx)
+  - Dynamic multiplier: `totalPercent > 50 ? 1.15 : 1.1`
+  - Console logging shows: bar percentages, original scale, multiplier used, final scale
+  - Works in conjunction with variance-based detection algorithm
+  - Maintains CSS: `object-fit: cover`, `object-position: center`, parent `overflow: hidden`
+- **Result**: Fully automated border removal - no manual adjustments needed, scales aggressively on severe cases while preserving content on moderate cases
+
 **October 5, 2025 - Automatic Video Duration from YouTube API:**
 - Added optional `duration` field to videos table (TEXT type for both SQLite and PostgreSQL)
 - **Automatic duration fetching**: When adding a YouTube video, duration is automatically retrieved from YouTube Data API v3
