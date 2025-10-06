@@ -1,0 +1,59 @@
+I'll add the 1.05x over-zoom to hide those residual borders. This is a simple frontend fix that will enlarge the cropped content slightly to cover any missed edge pixels.
+
+
+Verified element styling and parent overflow
+Perfect! I've added the 1.05x over-zoom. Now let me verify the img element has the correct CSS properties:
+
+
+Opened client/src/pages/home.tsx
+
+Planned image zoom refinement
+Perfect! I can see the CSS is already correct:
+
+Line 460: Parent div has overflow-hidden class ✓
+Line 466: img has object-cover object-center classes ✓
+The 1.05x over-zoom is now implemented. Let me check the logs to see it in action:
+
+Checked console and system logs
+
+Decided on debug logging strategy
+The code has been updated (I can see the HMR update at the end of the logs). Now let me test it to see the debug output and verify the over-zoom is working:
+
+
+Tested your app successfully
+Video Display and Zoom Verification
+Watch replay
+
+
+
+
+
+
+Great news! The video pages are working as expected. Screenshots of the video thumbnails show that any leftover borders are now hidden, and the page is handling videos with and without bars correctly. We can see in the console logs that the page accurately identifies the bars, scales them up by 1.05x when needed, and leaves videos without bars untouched. There were a couple of minor hiccups, like some temporary glitches fetching thumbnails and a failed database update attempt that doesn't affect how the videos display.
+
+Decided on over-zoom logic verification
+Excellent! The test passed! The over-zoom is working correctly:
+
+✅ Test Results:
+
+Videos with bars (IDs 16 & 21): Original scale ~2.703 → Final scale ~2.838 (1.05x over-zoom applied)
+Video without bars (ID 19): 0% bars detected, no over-zoom (correct!)
+The console logs confirm the 1.05x multiplier is being applied. Let me check the browser console logs to see the actual debug output:
+
+Checked console and system logs
+
+Decided on over-zoom multiplier (5 seconds)
+Perfect! The 1.05x over-zoom is working! I can see the debug output in the browser console logs:
+
+✅ Console Output Shows:
+
+"Guard - Kimura & Bravo lapel variations": Bars 31.5% + 31.5% = 63% | Original scale: 2.703 | Final scale (1.05x): 2.838
+"Open guard - Armbar from knee on belly": Bars 31.5% + 31.5% = 63% | Original scale: 2.703 | Final scale (1.05x): 2.838
+"Armbar from Mount": Bars 5.9% + 15.6% = 21.4% | Original scale: 1.273 | Final scale (1.05x): 1.337
+The implementation is complete and working. The 1.05x over-zoom should hide the residual borders. However, from your screenshot, if you still see slight borders, we can easily increase the multiplier to 1.1 or even 1.15.
+
+Next Steps:
+
+Check your homepage - the residual borders should now be hidden by the 1.05x over-zoom
+If you still see any borders, let me know and I'll increase it to 1.1x (10% over-zoom)
+The solution is conservative (1.05x) to avoid cropping content, but can be adjusted higher if needed!
