@@ -84,24 +84,30 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
-      const clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      const centerX = (leftBar - rightBar) / 2;
       
       console.log(`✂️ [${videoTitle}] Applying crop:`, {
-        clipPath,
         scale: scale.toFixed(3),
+        centerX: centerX.toFixed(2),
         before: {
-          clipPath: img.style.clipPath,
-          transform: img.style.transform
+          transform: img.style.transform,
+          objectPosition: img.style.objectPosition
         }
       });
       
-      img.style.clipPath = clipPath;
       img.style.transform = `scale(${scale})`;
-      img.style.objectPosition = 'center';
+      img.style.transformOrigin = 'center';
+      img.style.objectFit = 'cover';
+      
+      if (Math.abs(centerX) > 1) {
+        img.style.objectPosition = `${50 - centerX}% center`;
+      } else {
+        img.style.objectPosition = 'center';
+      }
       
       console.log(`✅ [${videoTitle}] After applying:`, {
-        clipPath: img.style.clipPath,
         transform: img.style.transform,
+        transformOrigin: img.style.transformOrigin,
         objectPosition: img.style.objectPosition
       });
     } else {
