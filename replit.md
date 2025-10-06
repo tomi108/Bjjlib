@@ -20,32 +20,29 @@ This is a full-stack video library management application built with React, Expr
 - Requires `YOUTUBE_API_KEY` environment variable (YouTube Data API v3 key)
 - Tested with multiple video types - all successfully fetch durations automatically
 
-**October 6, 2025 - Aggressive Variance-Based Pillarbox Detection (ANY Color Bars):**
-- **Upgraded to aggressive variance-based algorithm**: Detects and eliminates uniform letterbox bars of ANY color (black, white, gray, blue, or colored)
-- **Algorithm design**: Compares edge uniformity vs. center content detail with aggressive thresholds:
-  - Analyzes 3 regions: left edge (40%), center content (20%), right edge (40%) - deeper scanning
+**October 6, 2025 - Variance-Based Pillarbox Detection (ANY Color Bars):**
+- **Upgraded to variance-based algorithm**: Detects uniform letterbox bars of ANY color (black, white, gray, or colored)
+- **Algorithm design**: Compares edge uniformity vs. center content detail:
+  - Analyzes 3 regions: left edge (30%), center content (40%), right edge (30%)
   - Per-column variance calculation: RGB std dev across height (sample every 5px, min 10 samples)
-  - **Aggressive bar detection criteria**: variance <20 (tighter from <30) AND (RGB distance from center >25 (from >35) OR center variance >50 (tighter from >65))
-  - **3-consecutive-column stop logic**: Only stops scanning when 3 columns in a row are non-bars (catches gradients/compression artifacts)
-  - **4% buffer crop** added to each detected side (from 1.5%) to aggressively eliminate compression halos and edge artifacts
-  - **1.1x over-zoom multiplier**: Frontend applies 10% additional scale for complete gap elimination
+  - Bar detection criteria: variance <30 (uniform) AND (RGB distance from center >35 OR center variance >65)
+  - 1.5% buffer crop added to each detected side when total bars >5%
 - **Successfully detects**:
-  - ✅ White letterbox bars (white mat videos): "Guard - Kimura & Bravo lapel" (49.6% total detected, scale 2.18x applied)
-  - ✅ Blue letterbox bars (blue mat videos): "Open guard - Armbar" (76.1% total detected, scale 4.61x applied)
-  - ✅ Asymmetric bars: Different widths on left/right sides detected independently
-  - ✅ No false positives: Videos without bars correctly show 0% detection, no cropping applied
+  - ✅ White letterbox bars (white mat videos): "Guard - Kimura & Bravo lapel" (31.5% each side)
+  - ✅ Black/dark letterbox bars: "Open guard - Armbar" (31.5% each side)
+  - ✅ Asymmetric bars: Different widths on left/right sides
+  - ✅ No false positives: Videos without bars correctly show 0% detection
 - **Technical details**:
   - Server-side Sharp.js analysis at `/api/analyze-thumbnail` endpoint
   - Downsample to 25% for efficient processing
   - Security: URL whitelist (YouTube/Vimeo CDNs), SSRF protection
   - In-memory caching prevents redundant analysis
   - Guard against division by zero for narrow images
-  - Detailed debug logging for specific videos: variance, RGB values, per-column analysis
+  - Detailed logging: variance, RGB values, detected crop percentages
 - **Frontend integration**:
   - CSS clipPath + transform scale applied when total bars >5%
-  - Scale formula: `(100 / (100 - totalPercent)) * 1.1` includes 10% over-zoom
   - Maintains aspect ratio and image quality
-  - E2E tested and verified: zero visible borders on white-mat and blue-mat videos
+  - E2E tested and verified working on white-mat and dark-border videos
 
 **October 5, 2025 - High-Resolution Thumbnails:**
 - All videos use high-resolution `maxresdefault.jpg` (1280x720) as primary source

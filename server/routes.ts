@@ -333,9 +333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return { variance, avgR, avgG, avgB };
       };
       
-      // Calculate center region stats (middle 20% for tighter content focus)
-      const centerStart = Math.floor(info.width * 0.4);
-      const centerEnd = Math.floor(info.width * 0.6);
+      // Calculate center region stats (middle 40%)
+      const centerStart = Math.floor(info.width * 0.3);
+      const centerEnd = Math.floor(info.width * 0.7);
       let centerVarianceSum = 0;
       let centerRSum = 0, centerGSum = 0, centerBSum = 0;
       let centerColumns = 0;
@@ -363,8 +363,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isColumnBar = (x: number): boolean => {
         const stats = calculateColumnVariance(x);
         
-        // Column must be uniform (low variance) - tighter threshold for aggressive detection
-        if (stats.variance >= 20) {
+        // Column must be uniform (low variance)
+        if (stats.variance >= 30) {
           return false;
         }
         
@@ -375,41 +375,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           Math.pow(stats.avgB - centerAvgB, 2)
         );
         
-        // Column is bar if: uniform AND (differs from center OR center has detail) - more aggressive thresholds
-        return rgbDistance > 25 || centerAvgVariance > 50;
+        // Column is bar if: uniform AND (differs from center OR center has detail)
+        return rgbDistance > 35 || centerAvgVariance > 65;
       };
 
-      // Measure left bar (outer 40% of width, deeper scan for aggressive detection)
+      // Measure left bar (outer 30% of width)
       let leftBarWidth = 0;
-      const leftEdgeEnd = Math.floor(info.width * 0.4);
-      let consecutiveNonBars = 0;
+      const leftEdgeEnd = Math.floor(info.width * 0.3);
       for (let x = 0; x < leftEdgeEnd; x++) {
         if (isColumnBar(x)) {
           leftBarWidth = x + 1;
-          consecutiveNonBars = 0; // Reset counter
         } else {
-          consecutiveNonBars++;
-          // Only stop after 3 consecutive non-bar columns (skips gradients/artifacts)
-          if (consecutiveNonBars >= 3) {
-            break;
-          }
+          break;
         }
       }
 
-      // Measure right bar (outer 40% of width, deeper scan for aggressive detection)
+      // Measure right bar (outer 30% of width)
       let rightBarWidth = 0;
-      const rightEdgeStart = Math.floor(info.width * 0.6);
-      consecutiveNonBars = 0;
+      const rightEdgeStart = Math.floor(info.width * 0.7);
       for (let x = info.width - 1; x >= rightEdgeStart; x--) {
         if (isColumnBar(x)) {
           rightBarWidth = info.width - x;
-          consecutiveNonBars = 0; // Reset counter
         } else {
-          consecutiveNonBars++;
-          // Only stop after 3 consecutive non-bar columns (skips gradients/artifacts)
-          if (consecutiveNonBars >= 3) {
-            break;
-          }
+          break;
         }
       }
 
@@ -417,11 +405,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let rightBarPercent = (rightBarWidth / info.width) * 100;
       const totalBarPercent = leftBarPercent + rightBarPercent;
 
-      // Add 4% aggressive buffer crop to each side that has bars, only if total bars >5%
-      // This eliminates compression halos and gradient artifacts
+      // Add 1.5% buffer crop to each side that has bars, only if total bars >5%
       if (totalBarPercent > 5) {
-        if (leftBarPercent > 0) leftBarPercent += 4.0;
-        if (rightBarPercent > 0) rightBarPercent += 4.0;
+        if (leftBarPercent > 0) leftBarPercent += 1.5;
+        if (rightBarPercent > 0) rightBarPercent += 1.5;
       }
 
       const result = {
@@ -434,31 +421,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Thumbnail Analysis] URL: ${thumbnailUrl}`);
       console.log(`  Center variance: ${centerAvgVariance.toFixed(2)}, RGB: (${centerAvgR.toFixed(0)}, ${centerAvgG.toFixed(0)}, ${centerAvgB.toFixed(0)})`);
       console.log(`  Detected bars - Left: ${leftBarPercent.toFixed(1)}%, Right: ${rightBarPercent.toFixed(1)}%, Total: ${result.totalPercent.toFixed(1)}%`);
-      
-      // Debug logging for specific problematic video
-      if (thumbnailUrl.includes('vxVTnH2ufNA')) {
-        console.log(`\n[DEBUG vxVTnH2ufNA] Detailed edge analysis:`);
-        
-        // Log first 50 columns (left edge)
-        console.log(`  Left edge columns 0-50:`);
-        for (let x = 0; x <= Math.min(50, info.width - 1); x += 10) {
-          const stats = calculateColumnVariance(x);
-          const isBar = isColumnBar(x);
-          console.log(`    Col ${x}: variance=${stats.variance.toFixed(1)}, RGB=(${stats.avgR.toFixed(0)},${stats.avgG.toFixed(0)},${stats.avgB.toFixed(0)}), isBar=${isBar}`);
-        }
-        
-        // Log last 50 columns (right edge)
-        console.log(`  Right edge columns ${info.width - 50}-${info.width}:`);
-        for (let x = Math.max(0, info.width - 50); x < info.width; x += 10) {
-          const stats = calculateColumnVariance(x);
-          const isBar = isColumnBar(x);
-          console.log(`    Col ${x}: variance=${stats.variance.toFixed(1)}, RGB=(${stats.avgR.toFixed(0)},${stats.avgG.toFixed(0)},${stats.avgB.toFixed(0)}), isBar=${isBar}`);
-        }
-        
-        console.log(`  Image dimensions: ${info.width}x${info.height}`);
-        console.log(`  Left bar width detected: ${leftBarWidth} columns (${leftBarPercent.toFixed(1)}%)`);
-        console.log(`  Right bar width detected: ${rightBarWidth} columns (${rightBarPercent.toFixed(1)}%)\n`);
-      }
 
       thumbnailAnalysisCache.set(thumbnailUrl, result);
 
