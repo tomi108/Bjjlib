@@ -64,20 +64,51 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
   try {
     const thumbnailUrl = img.src;
     
+    console.log(`🔍 [${videoTitle}] Analyzing thumbnail:`, thumbnailUrl);
+    
     const response = await fetch(`/api/analyze-thumbnail?url=${encodeURIComponent(thumbnailUrl)}`);
-    if (!response.ok) return;
+    if (!response.ok) {
+      console.log(`❌ [${videoTitle}] API returned error:`, response.status);
+      return;
+    }
     
     const data = await response.json();
     const { leftBar, rightBar, totalPercent } = data;
     
+    console.log(`📊 [${videoTitle}] Border detection:`, {
+      leftBar: `${leftBar.toFixed(2)}%`,
+      rightBar: `${rightBar.toFixed(2)}%`,
+      totalPercent: `${totalPercent.toFixed(2)}%`,
+      willCrop: totalPercent > 5
+    });
+    
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
-      img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      const clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      
+      console.log(`✂️ [${videoTitle}] Applying crop:`, {
+        clipPath,
+        scale: scale.toFixed(3),
+        before: {
+          clipPath: img.style.clipPath,
+          transform: img.style.transform
+        }
+      });
+      
+      img.style.clipPath = clipPath;
       img.style.transform = `scale(${scale})`;
       img.style.objectPosition = 'center';
+      
+      console.log(`✅ [${videoTitle}] After applying:`, {
+        clipPath: img.style.clipPath,
+        transform: img.style.transform,
+        objectPosition: img.style.objectPosition
+      });
+    } else {
+      console.log(`⏭️ [${videoTitle}] Skipping crop (below 5% threshold)`);
     }
   } catch (error) {
-    console.error('Error detecting black bars:', error);
+    console.error(`❌ [${videoTitle}] Error detecting black bars:`, error);
   }
 }
 
