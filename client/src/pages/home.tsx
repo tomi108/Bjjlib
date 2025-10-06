@@ -71,7 +71,7 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     const { leftBar, rightBar, totalPercent } = data;
     
     if (totalPercent > 5) {
-      const scale = 100 / (100 - totalPercent);
+      const scale = (100 / (100 - totalPercent)) * 1.1; // 10% over-zoom to fully fill gaps
       img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
       img.style.transform = `scale(${scale})`;
       img.style.objectPosition = 'center';
