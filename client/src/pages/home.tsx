@@ -84,32 +84,27 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
-      const centerX = (leftBar - rightBar) / 2;
+      const scaledWidth = scale * 100;
+      const scaledHeight = scale * 100;
+      
+      const leftOffset = (leftBar / 100) * scaledWidth;
+      const topOffset = 0;
       
       console.log(`✂️ [${videoTitle}] Applying crop:`, {
-        scale: scale.toFixed(3),
-        centerX: centerX.toFixed(2),
-        before: {
-          transform: img.style.transform,
-          objectPosition: img.style.objectPosition
-        }
+        scaledWidth: `${scaledWidth}%`,
+        scaledHeight: `${scaledHeight}%`,
+        leftOffset: `-${leftOffset}%`,
+        topOffset: `${topOffset}%`
       });
       
-      img.style.transform = `scale(${scale})`;
-      img.style.transformOrigin = 'center';
-      img.style.objectFit = 'cover';
+      img.style.width = `${scaledWidth}%`;
+      img.style.height = `${scaledHeight}%`;
+      img.style.left = `-${leftOffset}%`;
+      img.style.top = `${topOffset}%`;
+      img.style.objectFit = 'none';
+      img.style.objectPosition = 'top left';
       
-      if (Math.abs(centerX) > 1) {
-        img.style.objectPosition = `${50 - centerX}% center`;
-      } else {
-        img.style.objectPosition = 'center';
-      }
-      
-      console.log(`✅ [${videoTitle}] After applying:`, {
-        transform: img.style.transform,
-        transformOrigin: img.style.transformOrigin,
-        objectPosition: img.style.objectPosition
-      });
+      console.log(`✅ [${videoTitle}] After applying - borders should be cropped by parent overflow:hidden`);
     } else {
       console.log(`⏭️ [${videoTitle}] Skipping crop (below 5% threshold)`);
     }
