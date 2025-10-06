@@ -349,6 +349,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         centerColumns++;
       }
       
+      // Guard against division by zero for very narrow images
+      if (centerColumns === 0) {
+        return res.json({ leftBar: 0, rightBar: 0, totalPercent: 0 });
+      }
+
       const centerAvgVariance = centerVarianceSum / centerColumns;
       const centerAvgR = centerRSum / centerColumns;
       const centerAvgG = centerGSum / centerColumns;
@@ -400,10 +405,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let rightBarPercent = (rightBarWidth / info.width) * 100;
       const totalBarPercent = leftBarPercent + rightBarPercent;
 
-      // Add 1.5% buffer crop to each side if bars detected >5%
+      // Add 1.5% buffer crop to each side that has bars, only if total bars >5%
       if (totalBarPercent > 5) {
-        leftBarPercent += 1.5;
-        rightBarPercent += 1.5;
+        if (leftBarPercent > 0) leftBarPercent += 1.5;
+        if (rightBarPercent > 0) rightBarPercent += 1.5;
       }
 
       const result = {
