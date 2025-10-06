@@ -12,13 +12,13 @@ This is a full-stack video library management application built with React, Expr
   - **Severe bars (>50% total)**: Uses 1.18x over-zoom (18% extra enlargement)
     - Example: 63% bars → original scale 2.703 → final scale **3.189** (1.18x)
     - Targets vertical/portrait content forced into 16:9 (e.g., "Open guard - Armbar", "Guard - Kimura & Bravo lapel")
-  - **Moderate bars (5-50% total)**: Uses 1.12x over-zoom (12% extra enlargement)
-    - Example: 21% bars → original scale 1.273 → final scale **1.426** (1.12x)
+  - **Moderate bars (5-50% total)**: Uses 1.1x over-zoom (10% extra enlargement)
+    - Example: 21% bars → original scale 1.273 → final scale **1.400** (1.1x)
     - Gentler zoom to avoid accidentally cropping important content
   - **No bars (≤5% total)**: No over-zoom applied (0% bars detected)
 - **Technical implementation**:
   - Frontend logic in `detectAndCropBlackBars()` (client/src/pages/home.tsx)
-  - Dynamic multiplier: `totalPercent > 50 ? 1.18 : 1.12`
+  - Dynamic multiplier: `totalPercent > 50 ? 1.18 : 1.1`
   - Console logging shows: bar percentages, original scale, multiplier used, final scale
   - Works in conjunction with variance-based detection algorithm
   - Maintains CSS: `object-fit: cover`, `object-position: center`, parent `overflow: hidden`
@@ -44,7 +44,7 @@ This is a full-stack video library management application built with React, Expr
   - Analyzes 3 regions: left edge (30%), center content (40%), right edge (30%)
   - Per-column variance calculation: RGB std dev across height (sample every 5px, min 10 samples)
   - Bar detection criteria: variance <30 (uniform) AND (RGB distance from center >35 OR center variance >65)
-  - 3.5% buffer crop added to each detected side when total bars >5%
+  - 1.5% buffer crop added to each detected side when total bars >5%
 - **Successfully detects**:
   - ✅ White letterbox bars (white mat videos): "Guard - Kimura & Bravo lapel" (31.5% each side)
   - ✅ Black/dark letterbox bars: "Open guard - Armbar" (31.5% each side)

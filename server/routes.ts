@@ -416,11 +416,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         symmetryCorrected = true;
       }
 
-      // Add 3.5% buffer crop to each side that has bars, only if total bars >5%
+      // Add 1.5% buffer crop to each side that has bars, only if total bars >5%
       const totalAfterSymmetry = leftBarPercent + rightBarPercent;
       if (totalAfterSymmetry > 5) {
-        if (leftBarPercent > 0) leftBarPercent += 3.5;
-        if (rightBarPercent > 0) rightBarPercent += 3.5;
+        if (leftBarPercent > 0) leftBarPercent += 1.5;
+        if (rightBarPercent > 0) rightBarPercent += 1.5;
       }
 
       const result = {
