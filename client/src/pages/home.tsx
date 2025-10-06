@@ -72,14 +72,19 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     
     if (totalPercent > 5) {
       const originalScale = 100 / (100 - totalPercent);
-      const dynamicMultiplier = totalPercent > 50 ? 1.18 : 1.12;
-      const finalScale = originalScale * dynamicMultiplier;
+      let dynamicMultiplier = totalPercent > 50 ? 1.18 : 1.15;
       
       const asymmetryDiff = leftBar - rightBar;
-      const offsetX = asymmetryDiff / 2;
+      const offsetX = asymmetryDiff / 1.5;
+      
+      if (Math.abs(asymmetryDiff) > 10) {
+        dynamicMultiplier += 0.05;
+      }
+      
+      const finalScale = originalScale * dynamicMultiplier;
       const objectPositionX = 50 + offsetX;
       
-      console.log(`[${videoTitle}] Bars: ${leftBar.toFixed(1)}% + ${rightBar.toFixed(1)}% = ${totalPercent.toFixed(1)}% | Asymmetry: ${asymmetryDiff.toFixed(1)}% | Object-position: ${objectPositionX.toFixed(1)}% center | Multiplier: ${dynamicMultiplier}x | Final scale: ${finalScale.toFixed(3)}`);
+      console.log(`[${videoTitle}] Bars: ${leftBar.toFixed(1)}% + ${rightBar.toFixed(1)}% = ${totalPercent.toFixed(1)}% | Asymmetry: ${asymmetryDiff.toFixed(1)}% | OffsetX: ${offsetX.toFixed(1)}% | Object-position: ${objectPositionX.toFixed(1)}% | Multiplier: ${dynamicMultiplier}x | Final scale: ${finalScale.toFixed(3)}`);
       
       img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
       img.style.transform = `scale(${finalScale})`;
