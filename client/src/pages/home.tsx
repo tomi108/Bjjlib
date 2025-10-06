@@ -64,52 +64,20 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
   try {
     const thumbnailUrl = img.src;
     
-    console.log(`🔍 [${videoTitle}] Analyzing thumbnail:`, thumbnailUrl);
-    
     const response = await fetch(`/api/analyze-thumbnail?url=${encodeURIComponent(thumbnailUrl)}`);
-    if (!response.ok) {
-      console.log(`❌ [${videoTitle}] API returned error:`, response.status);
-      return;
-    }
+    if (!response.ok) return;
     
     const data = await response.json();
     const { leftBar, rightBar, totalPercent } = data;
     
-    console.log(`📊 [${videoTitle}] Border detection:`, {
-      leftBar: `${leftBar.toFixed(2)}%`,
-      rightBar: `${rightBar.toFixed(2)}%`,
-      totalPercent: `${totalPercent.toFixed(2)}%`,
-      willCrop: totalPercent > 5
-    });
-    
     if (totalPercent > 5) {
       const scale = 100 / (100 - totalPercent);
-      const scaledWidth = scale * 100;
-      const scaledHeight = scale * 100;
-      
-      const leftOffset = (leftBar / 100) * scaledWidth;
-      const topOffset = 0;
-      
-      console.log(`✂️ [${videoTitle}] Applying crop:`, {
-        scaledWidth: `${scaledWidth}%`,
-        scaledHeight: `${scaledHeight}%`,
-        leftOffset: `-${leftOffset}%`,
-        topOffset: `${topOffset}%`
-      });
-      
-      img.style.width = `${scaledWidth}%`;
-      img.style.height = `${scaledHeight}%`;
-      img.style.left = `-${leftOffset}%`;
-      img.style.top = `${topOffset}%`;
-      img.style.objectFit = 'none';
-      img.style.objectPosition = 'top left';
-      
-      console.log(`✅ [${videoTitle}] After applying - borders should be cropped by parent overflow:hidden`);
-    } else {
-      console.log(`⏭️ [${videoTitle}] Skipping crop (below 5% threshold)`);
+      img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      img.style.transform = `scale(${scale})`;
+      img.style.objectPosition = 'center';
     }
   } catch (error) {
-    console.error(`❌ [${videoTitle}] Error detecting black bars:`, error);
+    console.error('Error detecting black bars:', error);
   }
 }
 
