@@ -72,12 +72,16 @@ async function detectAndCropBlackBars(img: HTMLImageElement, videoTitle: string)
     
     if (totalPercent > 5) {
       const originalScale = 100 / (100 - totalPercent);
-      const dynamicMultiplier = totalPercent > 50 ? 1.15 : 1.1;
+      const dynamicMultiplier = totalPercent > 50 ? 1.18 : 1.1;
       const finalScale = originalScale * dynamicMultiplier;
       
-      console.log(`[${videoTitle}] Bars: ${leftBar.toFixed(1)}% + ${rightBar.toFixed(1)}% = ${totalPercent.toFixed(1)}% | Original scale: ${originalScale.toFixed(3)} | Final scale (${dynamicMultiplier}x): ${finalScale.toFixed(3)}`);
+      const overscanMargin = dynamicMultiplier - 1;
+      const adjustedLeftClip = leftBar + (leftBar * overscanMargin);
+      const adjustedRightClip = rightBar + (rightBar * overscanMargin);
       
-      img.style.clipPath = `inset(0 ${rightBar}% 0 ${leftBar}%)`;
+      console.log(`[${videoTitle}] Bars: ${leftBar.toFixed(1)}% + ${rightBar.toFixed(1)}% = ${totalPercent.toFixed(1)}% | Original scale: ${originalScale.toFixed(3)} | Final scale (${dynamicMultiplier}x): ${finalScale.toFixed(3)} | Adjusted clips: L${adjustedLeftClip.toFixed(1)}% R${adjustedRightClip.toFixed(1)}%`);
+      
+      img.style.clipPath = `inset(0 ${adjustedRightClip}% 0 ${adjustedLeftClip}%)`;
       img.style.transform = `scale(${finalScale})`;
       img.style.objectPosition = 'center';
     }
