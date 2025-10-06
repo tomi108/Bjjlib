@@ -20,36 +20,35 @@ This is a full-stack video library management application built with React, Expr
 - Requires `YOUTUBE_API_KEY` environment variable (YouTube Data API v3 key)
 - Tested with multiple video types - all successfully fetch durations automatically
 
-**October 5, 2025 - High-Resolution Thumbnails with Dark Border Detection:**
-- **Updated thumbnail quality system**: All videos now use high-resolution `maxresdefault.jpg` (1280x720) as primary source
-- Universal fallback chain for optimal quality and reliability:
-  1. `maxresdefault.jpg` (1280x720) - Primary for ALL videos (regular and Shorts)
-  2. `sddefault.jpg` (640x480) - First fallback for better quality
-  3. `hqdefault.jpg` (480x360) - Second fallback
-  4. `hq2.jpg` (frame-based) - Last resort for Shorts/verticals only
-  5. SVG placeholder with play icon - Final fallback for complete failures
+**October 6, 2025 - Variance-Based Pillarbox Detection (ANY Color Bars):**
+- **Upgraded to variance-based algorithm**: Detects uniform letterbox bars of ANY color (black, white, gray, or colored)
+- **Algorithm design**: Compares edge uniformity vs. center content detail:
+  - Analyzes 3 regions: left edge (30%), center content (40%), right edge (30%)
+  - Per-column variance calculation: RGB std dev across height (sample every 5px, min 10 samples)
+  - Bar detection criteria: variance <30 (uniform) AND (RGB distance from center >35 OR center variance >65)
+  - 1.5% buffer crop added to each detected side when total bars >5%
+- **Successfully detects**:
+  - ✅ White letterbox bars (white mat videos): "Guard - Kimura & Bravo lapel" (31.5% each side)
+  - ✅ Black/dark letterbox bars: "Open guard - Armbar" (31.5% each side)
+  - ✅ Asymmetric bars: Different widths on left/right sides
+  - ✅ No false positives: Videos without bars correctly show 0% detection
+- **Technical details**:
+  - Server-side Sharp.js analysis at `/api/analyze-thumbnail` endpoint
+  - Downsample to 25% for efficient processing
+  - Security: URL whitelist (YouTube/Vimeo CDNs), SSRF protection
+  - In-memory caching prevents redundant analysis
+  - Guard against division by zero for narrow images
+  - Detailed logging: variance, RGB values, detected crop percentages
+- **Frontend integration**:
+  - CSS clipPath + transform scale applied when total bars >5%
+  - Maintains aspect ratio and image quality
+  - E2E tested and verified working on white-mat and dark-border videos
+
+**October 5, 2025 - High-Resolution Thumbnails:**
+- All videos use high-resolution `maxresdefault.jpg` (1280x720) as primary source
+- Universal fallback chain: maxresdefault → sddefault → hqdefault → hq2 (Shorts) → SVG placeholder
 - Eliminates fuzzy thumbnails by prioritizing highest available resolution
-- Added `isYouTubeShort()` detection function that checks for `/shorts/` in URL
-- **Server-Side Pixel Analysis for Dark Border Detection (✅ WORKING)**: 
-  - Created `/api/analyze-thumbnail` endpoint using Sharp.js for accurate pixel-based detection
-  - Bypasses CORS restrictions by fetching and analyzing images server-side
-  - Security: URL validation with hostname whitelist (YouTube/Vimeo CDNs only), SSRF protection
-  - Algorithm: Downsample to 25%, sample RGB columns every 5px (min 10 samples per column)
-  - **Universal dark border detection** - detects ANY very dark borders regardless of color:
-    - `brightness < 50` (average of RGB channels) - catches all dark pixels including colored ones
-    - OR `maxChannel < 60 AND channelDiff < 15` - backup detection for near-black/gray pixels
-  - Column detection: Requires 65% of column pixels to be dark (tolerates partial occlusion from video content)
-  - Successfully detects black, gray, AND dark colored borders (e.g., dark blue letterbox bars)
-  - Prevents false positives on lighter colored content (blue BJJ mats, dark backgrounds)
-  - Returns left/right bar percentages; frontend applies clipPath + scale transform if >5% total bars
-  - In-memory caching prevents re-analysis of same thumbnails
-  - **Verified working on multiple border types**:
-    - "Open guard - Armbar from knee on belly": Black/gray borders (28.3% each side) ✅
-    - "Test YouTube Short": Dark blue borders RGB(3,1,38) (29.2% each side) ✅
-- Updated container styling from inline `paddingBottom: "56.25%"` to Tailwind `aspect-[16/9]` class
-- Removed problematic `scale-[2.2]` zoom class, added `block` class to images
-- System successfully detects and crops baked-in black/gray letterbox bars from video thumbnails
-- Maintains aspect ratio and image quality through CSS transforms after cropping
+- Updated container styling to Tailwind `aspect-[16/9]` class
 
 **October 5, 2025 - TypeScript Error Fixes:**
 - Fixed TypeScript errors in VideoCard component
