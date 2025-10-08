@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { youtubeDurationReader, formatDuration } from "@/lib/youtube-duration";
 
 function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
@@ -217,6 +218,42 @@ export default function Home() {
   const totalPages = Math.ceil(totalVideos / 20);
 
   const selectedTags = allTags.filter(tag => selectedTagIds.includes(tag.id));
+
+  // Track durations fetched via YouTube IFrame Player API
+  const [videoDurations, setVideoDurations] = useState<Record<number, string>>({});
+
+  // Fetch durations for all YouTube videos when videos change
+  useEffect(() => {
+    const fetchDurations = async () => {
+      for (const video of videos) {
+        // Skip if already have duration in state
+        if (videoDurations[video.id]) {
+          continue;
+        }
+
+        // Skip if already have duration from backend
+        if (video.duration) {
+          setVideoDurations(prev => ({ ...prev, [video.id]: video.duration! }));
+          continue;
+        }
+
+        // Try to fetch duration via IFrame Player API
+        const videoId = getYouTubeVideoId(video.url);
+        if (videoId) {
+          const durationInSeconds = await youtubeDurationReader.getDuration(videoId);
+          if (durationInSeconds) {
+            const formattedDuration = formatDuration(durationInSeconds);
+            setVideoDurations(prev => ({ ...prev, [video.id]: formattedDuration }));
+          } else {
+            // Mark as failed to prevent retry
+            setVideoDurations(prev => ({ ...prev, [video.id]: '--:--' }));
+          }
+        }
+      }
+    };
+
+    fetchDurations();
+  }, [videos, videoDurations]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTagIds(prev => {
@@ -487,9 +524,9 @@ export default function Home() {
                                       <Play className="w-3.5 h-3.5 text-white ml-0.5" fill="white" />
                                     </div>
                                   </button>
-                                  {video.duration && (
+                                  {videoDurations[video.id] && (
                                     <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/80 text-white text-xs font-semibold rounded pointer-events-none" data-testid={`video-duration-${video.id}`}>
-                                      {video.duration}
+                                      {videoDurations[video.id]}
                                     </div>
                                   )}
                                 </>
