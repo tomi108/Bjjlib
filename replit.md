@@ -50,7 +50,6 @@ Preferred communication style: Simple, everyday language.
 - Health check endpoint.
 - Cookie-based session management for admin authentication using httpOnly cookies.
 - Thumbnail analysis endpoint (`/api/analyze-thumbnail`) for variance-based black bar detection (any color bars).
-- Utility module for YouTube API interactions to fetch video durations.
 
 ### Database Architecture
 
@@ -125,5 +124,10 @@ Preferred communication style: Simple, everyday language.
 ### Image Processing
 - **sharp**: High-performance Node.js image processing.
 
-### External APIs
-- **YouTube Data API v3**: For fetching video durations and metadata.
+### Video Duration Extraction
+- **YouTube IFrame Player API**: Browser-based duration extraction without API keys
+  - Hidden offscreen players load video metadata via `cueVideoById()`
+  - Sequential queue prevents multiple simultaneous iframes
+  - Automatic fallback to "--:--" on fetch failures
+  - No quota limits or authentication required
+  - Implementation: `client/src/lib/youtube-duration.ts`
