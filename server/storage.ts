@@ -373,23 +373,35 @@ export class DbStorage implements IStorage {
       return [];
     }
 
-    const coOccurringTagIdsQuery = db
-      .select({ tagId: videoTags.tagId })
+    const totalFilteredVideos = videoIdsWithAllTags.length;
+
+    const tagCountsQuery = db
+      .select({ 
+        tagId: videoTags.tagId,
+        count: sql<number>`COUNT(DISTINCT ${videoTags.videoId})`.as('count')
+      })
       .from(videoTags)
       .where(inArray(videoTags.videoId, videoIdsWithAllTags))
       .groupBy(videoTags.tagId);
     
-    const coOccurringTagIdsResults = isPostgres ? await coOccurringTagIdsQuery : coOccurringTagIdsQuery.all();
-    const coOccurringTagIds = dbAll(coOccurringTagIdsResults).map((v: any) => v.tagId);
+    const tagCountsResults = isPostgres ? await tagCountsQuery : tagCountsQuery.all();
+    const tagCounts = dbAll(tagCountsResults);
 
-    if (coOccurringTagIds.length === 0) {
+    const usefulTagIds = tagCounts
+      .filter((tc: any) => 
+        tc.count < totalFilteredVideos && 
+        !selectedTagIds.includes(tc.tagId)
+      )
+      .map((tc: any) => tc.tagId);
+
+    if (usefulTagIds.length === 0) {
       return [];
     }
 
     const tagsQuery = db
       .select()
       .from(tags)
-      .where(inArray(tags.id, coOccurringTagIds))
+      .where(inArray(tags.id, usefulTagIds))
       .orderBy(tags.name);
     
     const result = isPostgres ? await tagsQuery : tagsQuery.all();
