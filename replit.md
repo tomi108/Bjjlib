@@ -130,4 +130,13 @@ Preferred communication style: Simple, everyday language.
   - Sequential queue prevents multiple simultaneous iframes
   - Automatic fallback to "--:--" on fetch failures
   - No quota limits or authentication required
+  - Durations persist to database after first fetch for instant subsequent loads
   - Implementation: `client/src/lib/youtube-duration.ts`
+
+### Smart Tag Filtering
+- **Intelligent Available Tags**: Shows only tags that would actually narrow down search results
+  - Counts tag frequency across filtered videos
+  - Excludes tags appearing on ALL filtered videos (universal tags)
+  - Excludes already selected tags
+  - Example: When "armbar" is selected (2 videos), shows "kimura" (1/2 videos) but hides "armbar" (already selected)
+  - Implementation: `server/storage.ts` - `getCoOccurringTags()` method
