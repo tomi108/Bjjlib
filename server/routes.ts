@@ -109,6 +109,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/videos/:id/duration", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid video ID" });
+      }
+
+      const { duration } = req.body;
+      if (!duration || typeof duration !== 'string') {
+        return res.status(400).json({ message: "Duration is required" });
+      }
+
+      const updated = await storage.updateVideoDuration(id, duration);
+      if (!updated) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating video duration:", error);
+      res.status(500).json({ message: "Failed to update duration" });
+    }
+  });
+
   app.delete("/api/videos/:id", async (req, res) => {
     try {
       const sessionId = req.cookies.adminSessionId;

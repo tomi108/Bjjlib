@@ -244,6 +244,17 @@ export default function Home() {
           if (durationInSeconds) {
             const formattedDuration = formatDuration(durationInSeconds);
             setVideoDurations(prev => ({ ...prev, [video.id]: formattedDuration }));
+            
+            // Save duration to database for future visits
+            try {
+              await fetch(`/api/videos/${video.id}/duration`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration: formattedDuration }),
+              });
+            } catch (error) {
+              console.error('Failed to save duration to database:', error);
+            }
           } else {
             // Mark as failed to prevent retry
             setVideoDurations(prev => ({ ...prev, [video.id]: '--:--' }));
