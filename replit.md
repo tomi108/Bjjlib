@@ -140,3 +140,40 @@ Preferred communication style: Simple, everyday language.
   - Excludes already selected tags
   - Example: When "armbar" is selected (2 videos), shows "kimura" (1/2 videos) but hides "armbar" (already selected)
   - Implementation: `server/storage.ts` - `getCoOccurringTags()` method
+
+### SEO Implementation
+- **Meta Tags Optimization** (`client/index.html`):
+  - Brand-first title: "Bjjlib - BJJ Training Video Library for Clubs & Gyms" (under 60 chars)
+  - 156-char description targeting "bjjlib", "BJJ training video library", "club", "gym"
+  - Keywords meta tag with dual positioning: current (personal library) + future (club platform)
+  - Open Graph and Twitter Card tags for social sharing
+
+- **Schema.org Structured Data** (`client/src/components/schema-markup.tsx`):
+  - **Organization schema**: Defines bjjlib as a brand entity
+  - **SoftwareApplication schema**: Positions as educational BJJ app (free pricing, aggregate rating)
+  - **ItemList schema**: Lists up to 10 videos for search engine discovery
+  - **VideoObject schema**: Conditionally rendered for YouTube/Vimeo videos only
+    - Includes thumbnailUrl, duration (ISO 8601), embedUrl, keywords from tags
+    - Skips unsupported platforms (iCloud) to ensure valid markup
+    - Duration validation prevents invalid ISO 8601 values ("--:--" → undefined)
+    - Upload date has try/catch protection for invalid dates
+
+- **Dynamic XML Sitemap** (`server/index.ts`):
+  - Endpoint: `/sitemap.xml`
+  - Auto-updates as videos are added
+  - Proper lastmod dates, changefreq, priority values
+  - Registered before Vite middleware to avoid routing conflicts
+
+- **Semantic HTML Structure** (`client/src/pages/home.tsx`):
+  - H1: "Bjjlib" (brand)
+  - H2: "Quick tag search"
+  - H3: "Selected tags", "Available tags"
+  - ARIA labels for accessibility
+  - Proper heading hierarchy for crawlers
+
+- **Image SEO**:
+  - Alt text format: "BJJ technique video: [title] - [tags]"
+  - Includes keywords naturally for image search
+  - Example: "BJJ technique video: Armbar from Mount - armbar, fundamentals, submissions"
+
+**Target Keywords**: bjjlib, bjjlibrary, bjj training videos, bjj app, bjj club management, bjj gym app, bjj training platform
