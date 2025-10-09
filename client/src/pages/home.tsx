@@ -16,6 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { youtubeDurationReader, formatDuration } from "@/lib/youtube-duration";
+import { 
+  SchemaMarkup, 
+  generateOrganizationSchema, 
+  generateSoftwareApplicationSchema,
+  generateItemListSchema,
+  generateVideoObjectSchema 
+} from "@/components/schema-markup";
 
 function getEmbedUrl(url: string, autoplay: boolean = false): string | null {
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
@@ -296,6 +303,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
+      <SchemaMarkup schema={generateOrganizationSchema()} />
+      <SchemaMarkup schema={generateSoftwareApplicationSchema()} />
+      {videos.length > 0 && <SchemaMarkup schema={generateItemListSchema(videos)} />}
+      
       <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -374,9 +385,9 @@ export default function Home() {
         
         <div className="space-y-6 mb-8">
           <div className="max-w-md">
-            <label className="block text-sm font-medium mb-2">
+            <h2 className="block text-sm font-medium mb-2">
               Quick tag search
-            </label>
+            </h2>
             <TagAutosuggest
               allTags={allTags}
               selectedTags={selectedTags.map(t => t.name)}
@@ -390,7 +401,7 @@ export default function Home() {
           {selectedTags.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Selected tags</span>
+                <h3 className="text-sm font-medium">Selected tags</h3>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -419,7 +430,7 @@ export default function Home() {
 
           <div>
             <h3 className="text-sm font-medium mb-2">Available tags</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" role="list" aria-label="Available filter tags">
               {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).map(tag => {
                 return (
                   <button
@@ -513,14 +524,26 @@ export default function Home() {
                           document.body.appendChild(fullscreenDiv);
                         };
                         
+                        const hasValidSchema = embedUrl && (video.url.includes('youtube.com') || video.url.includes('youtu.be') || video.url.includes('vimeo.com'));
+                        
                         return (
                           <Card key={video.id} className="bg-gray-900 border-gray-800 overflow-hidden" data-testid={`video-card-${video.id}`}>
+                            {hasValidSchema && (
+                              <SchemaMarkup schema={generateVideoObjectSchema({
+                                id: video.id,
+                                title: video.title,
+                                url: video.url,
+                                duration: videoDurations[video.id] || video.duration,
+                                dateAdded: typeof video.dateAdded === 'string' ? video.dateAdded : video.dateAdded.toISOString(),
+                                tags: video.tags
+                              })} />
+                            )}
                             <div className="relative w-full overflow-hidden group aspect-[16/9]">
                               {embedUrl && thumbnailUrl ? (
                                 <>
                                   <img
                                     src={thumbnailUrl}
-                                    alt={video.title}
+                                    alt={`BJJ technique video: ${video.title}${video.tags.length > 0 ? ` - ${video.tags.map(t => t.name).join(', ')}` : ''}`}
                                     className="block absolute top-0 left-0 w-full h-full object-cover object-center"
                                     onError={handleThumbnailError}
                                     onLoad={(e) => detectAndCropBlackBars(e.currentTarget, video.title)}

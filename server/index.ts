@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -57,6 +58,42 @@ app.use((req, res, next) => {
 
     res.status(status).json({ message });
     throw err;
+  });
+
+  // Serve sitemap before Vite middleware to ensure proper routing
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const result = await storage.getAllVideos({ page: 1, limit: 1000 });
+      const videos = result.videos;
+
+      const videoUrls = videos
+        .map(video => {
+          const lastmod = new Date(video.dateAdded).toISOString().split('T')[0];
+          return `  <url>
+    <loc>https://bjjlib.com/?video=${video.id}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+        })
+        .join('\n');
+
+      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://bjjlib.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+${videoUrls}
+</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.send(sitemap);
+    } catch (error) {
+      console.error("Error serving sitemap:", error);
+      res.status(500).send("Failed to generate sitemap");
+    }
   });
 
   // importantly only setup vite in development and after
