@@ -71,7 +71,12 @@ export function VideoTable({ videos, onVideoDeleted, onVideoUpdated }: VideoTabl
     });
   };
 
-  const getVideoThumbnail = (url: string) => {
+  const getVideoThumbnail = (url: string, thumbnailUrl?: string | null) => {
+    // Prioritize Cloudinary thumbnail if available
+    if (thumbnailUrl) {
+      return thumbnailUrl;
+    }
+    
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     if (youtubeMatch) {
       return `https://img.youtube.com/vi/${youtubeMatch[1]}/default.jpg`;
@@ -116,9 +121,9 @@ export function VideoTable({ videos, onVideoDeleted, onVideoUpdated }: VideoTabl
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-10 bg-muted/20 rounded overflow-hidden flex-shrink-0">
-                        {getVideoThumbnail(video.url) ? (
+                        {getVideoThumbnail(video.url, video.thumbnailUrl) ? (
                           <img
-                            src={getVideoThumbnail(video.url)!}
+                            src={getVideoThumbnail(video.url, video.thumbnailUrl)!}
                             alt={`Thumbnail for ${video.title}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
