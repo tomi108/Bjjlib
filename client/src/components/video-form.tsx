@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, PlusCircle, X } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Plus, PlusCircle, X, Upload, Link as LinkIcon } from "lucide-react";
 
 interface VideoFormProps {
   onVideoAdded: () => void;
@@ -22,6 +23,9 @@ interface VideoFormProps {
 export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedTagName, setSelectedTagName] = useState<string>("");
+  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -71,11 +75,74 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
     setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const onSubmit = (data: InsertVideo) => {
-    createVideoMutation.mutate({
-      ...data,
-      tags: selectedTags,
-    });
+  const uploadVideoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('clubId', 'default'); // Can be made dynamic later
+      
+      setUploadProgress(10);
+      
+      const response = await fetch('/api/videos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      setUploadProgress(90);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+      
+      setUploadProgress(100);
+      return response.json();
+    },
+    onError: (error: Error) => {
+      setUploadProgress(0);
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = async (data: InsertVideo) => {
+    try {
+      let videoUrl = data.url;
+      let thumbnailUrl: string | undefined;
+      
+      // If file upload mode, upload to Cloudinary first
+      if (uploadMode === 'file' && selectedFile) {
+        const uploadResult = await uploadVideoMutation.mutateAsync(selectedFile);
+        videoUrl = uploadResult.videoUrl;
+        thumbnailUrl = uploadResult.thumbnailUrl;
+        
+        // Set the URL in form state for validation
+        form.setValue('url', videoUrl, { shouldValidate: true });
+      }
+      
+      // Validate we have a URL (from either mode)
+      if (!videoUrl) {
+        toast({
+          title: "Missing video URL",
+          description: "Please provide a video URL or upload a file",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Create video entry with URL and optional thumbnail
+      createVideoMutation.mutate({
+        title: data.title,
+        url: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        tags: selectedTags,
+      });
+    } catch (error) {
+      // Error already handled by uploadVideoMutation
+    }
   };
 
   return (
@@ -110,29 +177,108 @@ export function VideoForm({ onVideoAdded, tags }: VideoFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Video URL <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="url"
-                      placeholder="https://youtube.com/watch?v=..."
-                      {...field}
-                      data-testid="input-video-url"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground">
-                    YouTube, Vimeo, or direct video link
-                  </p>
-                </FormItem>
-              )}
-            />
+            <div className="space-y-3">
+              <FormLabel>Video Source</FormLabel>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={uploadMode === 'url' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => setUploadMode('url')}
+                  data-testid="button-url-mode"
+                >
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  URL
+                </Button>
+                <Button
+                  type="button"
+                  variant={uploadMode === 'file' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => setUploadMode('file')}
+                  data-testid="button-file-mode"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload File
+                </Button>
+              </div>
+            </div>
+
+            {uploadMode === 'url' ? (
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Video URL <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="url"
+                        placeholder="https://youtube.com/watch?v=..."
+                        {...field}
+                        data-testid="input-video-url"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    <p className="text-xs text-muted-foreground">
+                      YouTube, Vimeo, or direct video link
+                    </p>
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="space-y-3">
+                <FormLabel>
+                  Upload Video File <span className="text-destructive">*</span>
+                </FormLabel>
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        form.setValue('url', ''); // Clear URL when file is selected
+                      }
+                    }}
+                    className="hidden"
+                    id="video-file-input"
+                    data-testid="input-video-file"
+                  />
+                  <label
+                    htmlFor="video-file-input"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <div className="text-sm">
+                      {selectedFile ? (
+                        <span className="font-medium text-foreground">{selectedFile.name}</span>
+                      ) : (
+                        <>
+                          <span className="text-primary font-medium">Choose a video file</span>
+                          <span className="text-muted-foreground"> or drag and drop</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      MP4, MOV, or AVI (max 100MB)
+                    </p>
+                  </label>
+                </div>
+                
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <FormLabel>Tags</FormLabel>

@@ -4,12 +4,143 @@ import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
+import multer from "multer";
+import { Readable } from "stream";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDatabase();
   
+  // Configure multer for memory storage
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  });
+  
   app.get("/api/health", (_req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  // Video upload endpoint with Cloudinary
+  app.post("/api/videos/upload", upload.single('video'), async (req, res) => {
+    try {
+      // Check admin authentication
+      const sessionId = req.cookies.adminSessionId;
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+
+      // Validate file upload
+      if (!req.file) {
+        return res.status(400).json({ message: "No video file provided" });
+      }
+
+      // Validate MIME type for security
+      const allowedMimeTypes = [
+        'video/mp4',
+        'video/mpeg',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/x-ms-wmv',
+        'video/webm'
+      ];
+      
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ 
+          message: `Invalid file type: ${req.file.mimetype}. Only video files are allowed (MP4, MOV, AVI, etc.)` 
+        });
+      }
+
+      if (!process.env.CLOUDINARY_URL || !process.env.CLOUDINARY_URL.startsWith('cloudinary://')) {
+        return res.status(500).json({ message: "Cloudinary not configured properly. Please add CLOUDINARY_URL secret." });
+      }
+
+      // Dynamically import cloudinary only when needed (after env var check)
+      const { v2: cloudinary } = await import('cloudinary');
+      
+      // Get club ID from request or default to 'default'
+      const clubId = req.body.clubId || 'default';
+
+      // Upload to Cloudinary using stream
+      const uploadPromise = new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'video',
+            folder: `bjjlib/videos/${clubId}`,
+            chunk_size: 6000000, // 6MB chunks for better upload reliability
+            eager: [
+              // Auto-generate thumbnail with smart cropping
+              { 
+                width: 1280, 
+                height: 720, 
+                crop: 'limit',
+                quality: 'auto',
+                fetch_format: 'auto',
+                start_offset: 'auto',
+                duration: 1
+              }
+            ],
+            eager_async: true, // Generate thumbnails in background
+            // FUTURE: HLS Streaming (commented stub for adaptive playback)
+            // transformation: [
+            //   { 
+            //     streaming_profile: 'hd',
+            //     format: 'm3u8'
+            //   }
+            // ]
+          },
+          (error, result) => {
+            if (error) {
+              console.error('Cloudinary upload error:', error);
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+
+        // Convert buffer to stream and pipe to Cloudinary
+        const bufferStream = new Readable();
+        bufferStream.push(req.file!.buffer);
+        bufferStream.push(null);
+        bufferStream.pipe(stream);
+      });
+
+      const uploadResult = await uploadPromise as any;
+
+      // Generate thumbnail URL from eager transformation
+      const thumbnailUrl = uploadResult.eager && uploadResult.eager[0] 
+        ? uploadResult.eager[0].secure_url 
+        : uploadResult.secure_url.replace(/\.(mp4|mov|avi)$/, '.jpg');
+
+      console.log('Video uploaded to Cloudinary:', {
+        public_id: uploadResult.public_id,
+        secure_url: uploadResult.secure_url,
+        thumbnail_url: thumbnailUrl,
+        duration: uploadResult.duration,
+        format: uploadResult.format
+      });
+
+      res.json({
+        success: true,
+        videoUrl: uploadResult.secure_url,
+        thumbnailUrl: thumbnailUrl,
+        publicId: uploadResult.public_id,
+        duration: uploadResult.duration ? Math.round(uploadResult.duration) : null
+      });
+    } catch (error) {
+      console.error('Video upload error:', error);
+      if (error instanceof Error) {
+        res.status(500).json({ message: `Upload failed: ${error.message}` });
+      } else {
+        res.status(500).json({ message: 'Video upload failed' });
+      }
+    }
   });
 
   app.get("/api/videos", async (req, res) => {

@@ -133,6 +133,19 @@ Preferred communication style: Simple, everyday language.
   - Durations persist to database after first fetch for instant subsequent loads
   - Implementation: `client/src/lib/youtube-duration.ts`
 
+### Cloudinary Video Upload Integration
+- **Native Video Hosting**: Upload videos directly to Cloudinary with mobile-optimized UI
+  - Multer middleware for file handling (100MB limit)
+  - Stream-based upload to Cloudinary (6MB chunks for reliability)
+  - Folder organization by club: `bjjlib/videos/{clubId}`
+  - Auto-thumbnail generation with smart cropping (1280x720, quality: auto)
+  - Eager async transformation for background processing
+  - Dual mode UI: URL input (YouTube/Vimeo) or file upload
+  - Progress bar with percentage indicator
+  - Signed uploads for security
+  - HLS streaming stub ready for future adaptive playback (m3u8)
+  - Implementation: `server/routes.ts` (POST /api/videos/upload), `client/src/components/video-form.tsx`
+
 ### Smart Tag Filtering
 - **Intelligent Available Tags**: Shows only tags that would actually narrow down search results
   - Counts tag frequency across filtered videos
