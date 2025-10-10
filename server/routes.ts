@@ -85,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 duration: 1
               }
             ],
-            eager_async: true, // Generate thumbnails in background
+            eager_async: false, // Wait for thumbnail generation before returning
             // FUTURE: HLS Streaming (commented stub for adaptive playback)
             // transformation: [
             //   { 
@@ -113,10 +113,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const uploadResult = await uploadPromise as any;
 
-      // Generate thumbnail URL from eager transformation
-      const thumbnailUrl = uploadResult.eager && uploadResult.eager[0] 
-        ? uploadResult.eager[0].secure_url 
-        : uploadResult.secure_url.replace(/\.(mp4|mov|avi)$/, '.jpg');
+      // Generate thumbnail URL from eager transformation with defensive fallbacks
+      let thumbnailUrl: string;
+      
+      if (uploadResult.eager && uploadResult.eager[0] && uploadResult.eager[0].secure_url) {
+        // Primary: Use eager transformation thumbnail
+        thumbnailUrl = uploadResult.eager[0].secure_url;
+      } else if (uploadResult.thumbnail_url) {
+        // Fallback 1: Use Cloudinary's built-in thumbnail_url
+        thumbnailUrl = uploadResult.thumbnail_url;
+      } else {
+        // Fallback 2: Construct thumbnail URL from video URL
+        // Cloudinary allows .jpg extension on video URLs to get auto-generated thumbnail
+        thumbnailUrl = uploadResult.secure_url.replace(/\.(mp4|mov|avi|webm|mpeg)$/i, '.jpg');
+      }
 
       console.log('Video uploaded to Cloudinary:', {
         public_id: uploadResult.public_id,
