@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
+import { VideoForm } from "@/components/video-form";
 import { Trash2, X, VideoIcon, Loader2, Pencil } from "lucide-react";
 import { Link } from "wouter";
 
@@ -248,121 +249,13 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
           {logoutMutation.isPending ? "Logging out..." : "Logout"}
         </Button>
       </div>
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle>Add New Video</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title *</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          placeholder="e.g., Kimura from Side Control"
-                          {...field}
-                          className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-                          data-testid="input-video-title"
-                        />
-                        {isFetchingTitle && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          </div>
-                        )}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                    {isFetchingTitle && (
-                      <p className="text-xs text-blue-400">Fetching title from YouTube...</p>
-                    )}
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Video URL *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://youtube.com/watch?v=..."
-                        {...field}
-                        className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-                        data-testid="input-video-url"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    <p className="text-xs text-gray-400">YouTube or Vimeo URL - Title auto-fills from YouTube if empty</p>
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <FormLabel>Tags</FormLabel>
-                <TagAutosuggest
-                  allTags={allTags}
-                  selectedTags={selectedTags}
-                  onAddTag={addTag}
-                  placeholder="Type to search or create new tag..."
-                  className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
-                  testId="input-tag"
-                  allowNewTags={true}
-                />
-                <p className="text-xs text-gray-400">
-                  Multi-word tags supported (e.g., "side control", "closed guard"). Press Enter to add.
-                </p>
-                
-                {selectedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedTags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
-                        onClick={() => removeTag(tag)}
-                        data-testid={`selected-tag-${tag}`}
-                      >
-                        {tag}
-                        <X className="w-3 h-3 ml-1" />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  disabled={createVideoMutation.isPending}
-                  data-testid="button-submit-video"
-                >
-                  {createVideoMutation.isPending ? "Adding..." : "Add Video"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    form.reset();
-                    setSelectedTags([]);
-                  }}
-                  className="border-gray-700 hover:bg-gray-800"
-                  data-testid="button-reset-form"
-                >
-                  Reset
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+      <VideoForm 
+        tags={allTags} 
+        onVideoAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+        }}
+      />
 
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
