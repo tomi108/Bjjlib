@@ -1,76 +1,26 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertVideoSchema, InsertVideo, VideoWithTags, Tag } from "@shared/schema";
+import { VideoWithTags, Tag } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { VideoForm } from "@/components/video-form";
-import { Trash2, X, VideoIcon, Loader2, Pencil } from "lucide-react";
+import { Trash2, VideoIcon, Pencil } from "lucide-react";
 import { Link } from "wouter";
-
-async function fetchYouTubeTitle(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.title || null;
-  } catch {
-    return null;
-  }
-}
 
 interface AdminTabProps {
   isAdmin: boolean;
 }
 
 export function AdminTab({ isAdmin }: AdminTabProps) {
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isFetchingTitle, setIsFetchingTitle] = useState(false);
   const [password, setPassword] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const form = useForm<InsertVideo>({
-    resolver: zodResolver(insertVideoSchema),
-    defaultValues: {
-      title: "",
-      url: "",
-      tags: [],
-    },
-  });
-
-  const urlValue = form.watch("url");
-  const titleValue = form.watch("title");
-
-  useEffect(() => {
-    const fetchTitle = async () => {
-      if (!urlValue || titleValue) return;
-      
-      const isYouTube = urlValue.includes("youtube.com") || urlValue.includes("youtu.be");
-      if (!isYouTube) return;
-
-      setIsFetchingTitle(true);
-      const title = await fetchYouTubeTitle(urlValue);
-      
-      const currentTitle = form.getValues("title");
-      if (title && !currentTitle) {
-        form.setValue("title", title);
-      }
-      setIsFetchingTitle(false);
-    };
-
-    const timeoutId = setTimeout(fetchTitle, 500);
-    return () => clearTimeout(timeoutId);
-  }, [urlValue, titleValue, form]);
 
   const { data: videosData } = useQuery<{ videos: VideoWithTags[]; total: number }>({
     queryKey: ["/api/videos", { page: 1, limit: 1000 }],
@@ -86,30 +36,6 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
   });
 
   const videos = videosData?.videos || [];
-
-  const createVideoMutation = useMutation({
-    mutationFn: async (data: InsertVideo) => {
-      const response = await apiRequest("POST", "/api/videos", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Video added successfully",
-        description: "Your video has been added to the library",
-      });
-      form.reset();
-      setSelectedTags([]);
-      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error adding video",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const deleteVideoMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -174,24 +100,6 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
       });
     },
   });
-
-  const addTag = (tagName: string) => {
-    const normalizedTag = tagName.toLowerCase().trim();
-    if (normalizedTag && !selectedTags.includes(normalizedTag)) {
-      setSelectedTags([...selectedTags, normalizedTag]);
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setSelectedTags(selectedTags.filter(t => t !== tag));
-  };
-
-  const onSubmit = (data: InsertVideo) => {
-    createVideoMutation.mutate({
-      ...data,
-      tags: selectedTags,
-    });
-  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
