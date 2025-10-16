@@ -54,11 +54,6 @@ export class DbStorage implements IStorage {
           ALTER TABLE videos 
           ADD COLUMN IF NOT EXISTS duration TEXT
         `);
-        
-        await db.execute(sql`
-          ALTER TABLE videos 
-          ADD COLUMN IF NOT EXISTS thumbnail_url TEXT
-        `);
 
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS tags (
@@ -102,14 +97,6 @@ export class DbStorage implements IStorage {
         } catch (e: any) {
           if (!e.message?.includes("duplicate column")) {
             console.error("Failed to add duration column:", e.message);
-          }
-        }
-        
-        try {
-          await db.run(sql`ALTER TABLE videos ADD COLUMN thumbnail_url TEXT`);
-        } catch (e: any) {
-          if (!e.message?.includes("duplicate column")) {
-            console.error("Failed to add thumbnail_url column:", e.message);
           }
         }
 

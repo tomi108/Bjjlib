@@ -10,12 +10,7 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ video }: VideoCardProps) {
-  const getVideoThumbnail = (url: string, thumbnailUrl?: string | null) => {
-    // Prioritize Cloudinary thumbnail if available
-    if (thumbnailUrl) {
-      return thumbnailUrl;
-    }
-    
+  const getVideoThumbnail = (url: string) => {
     // Extract YouTube video ID if it's a YouTube URL
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     if (youtubeMatch) {
@@ -34,7 +29,7 @@ export function VideoCard({ video }: VideoCardProps) {
     <Card className="video-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
       <div className="relative h-48 overflow-hidden bg-black">
         <img 
-          src={getVideoThumbnail(video.url, video.thumbnailUrl)}
+          src={getVideoThumbnail(video.url)}
           alt={`Thumbnail for ${video.title}`}
           className="w-full h-full object-cover object-center scale-[2.2] hover:scale-[2.25] transition-transform duration-300"
           onError={(e) => {

@@ -9,7 +9,6 @@ export const videosSqlite = sqliteTable("videos", {
   title: text("title").notNull(),
   url: text("url").notNull(),
   duration: text("duration"),
-  thumbnailUrl: text("thumbnail_url"),
   dateAdded: integer("date_added", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
@@ -18,7 +17,6 @@ export const videosPg = pgTable("videos", {
   title: pgText("title").notNull(),
   url: pgText("url").notNull(),
   duration: pgText("duration"),
-  thumbnailUrl: pgText("thumbnail_url"),
   dateAdded: timestamp("date_added").notNull().defaultNow(),
 });
 
