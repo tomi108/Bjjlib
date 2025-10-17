@@ -1,4 +1,4 @@
-import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession } from "@shared/schema";
+import { type Video, type InsertVideo, type Tag, type InsertTag, type UpdateTag, type VideoWithTags, type AdminSession } from "@shared/schema";
 import { db, isPostgres, videos, tags, videoTags, adminSessions } from "./db";
 import { eq, sql, and, inArray, lt } from "drizzle-orm";
 
@@ -11,9 +11,13 @@ export interface IStorage {
   deleteVideo(id: number): Promise<boolean>;
   
   getAllTags(): Promise<Tag[]>;
+  getTagsByCategory(category: string | null): Promise<Tag[]>;
   getTag(id: number): Promise<Tag | undefined>;
   getTagByName(name: string): Promise<Tag | undefined>;
-  createOrGetTag(name: string): Promise<Tag>;
+  createOrGetTag(name: string, category?: string | null): Promise<Tag>;
+  updateTag(id: number, updates: UpdateTag): Promise<Tag | undefined>;
+  renameTag(id: number, newName: string): Promise<Tag | undefined>;
+  deleteTag(id: number): Promise<boolean>;
   
   getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]>;
   
@@ -61,6 +65,11 @@ export class DbStorage implements IStorage {
             name TEXT NOT NULL UNIQUE
           )
         `);
+        
+        await db.execute(sql`
+          ALTER TABLE tags 
+          ADD COLUMN IF NOT EXISTS category TEXT
+        `);
 
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS video_tags (
@@ -106,6 +115,14 @@ export class DbStorage implements IStorage {
             name TEXT NOT NULL UNIQUE
           )
         `);
+        
+        try {
+          await db.run(sql`ALTER TABLE tags ADD COLUMN category TEXT`);
+        } catch (e: any) {
+          if (!e.message?.includes("duplicate column")) {
+            console.error("Failed to add category column:", e.message);
+          }
+        }
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS video_tags (
@@ -325,9 +342,21 @@ export class DbStorage implements IStorage {
 
   async getAllTags(): Promise<Tag[]> {
     const tagsQuery = db
-      .selectDistinct({ id: tags.id, name: tags.name })
+      .selectDistinct({ id: tags.id, name: tags.name, category: tags.category })
       .from(tags)
       .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
+      .orderBy(tags.name);
+    
+    const tagsWithVideos = isPostgres ? await tagsQuery : tagsQuery.all();
+    return dbAll(tagsWithVideos);
+  }
+
+  async getTagsByCategory(category: string | null): Promise<Tag[]> {
+    const tagsQuery = db
+      .selectDistinct({ id: tags.id, name: tags.name, category: tags.category })
+      .from(tags)
+      .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
+      .where(category === null ? sql`${tags.category} IS NULL` : eq(tags.category, category))
       .orderBy(tags.name);
     
     const tagsWithVideos = isPostgres ? await tagsQuery : tagsQuery.all();
@@ -344,14 +373,30 @@ export class DbStorage implements IStorage {
     return dbGet(isPostgres ? await query : query.get());
   }
 
-  async createOrGetTag(name: string): Promise<Tag> {
+  async createOrGetTag(name: string, category: string | null = null): Promise<Tag> {
     const normalizedName = name.toLowerCase().trim();
     const existing = await this.getTagByName(normalizedName);
     if (existing) return existing;
 
-    const result = dbGet(await db.insert(tags).values({ name: normalizedName }).returning());
+    const result = dbGet(await db.insert(tags).values({ name: normalizedName, category }).returning());
     if (!result) throw new Error("Failed to create tag");
     return result;
+  }
+
+  async updateTag(id: number, updates: UpdateTag): Promise<Tag | undefined> {
+    const result = dbGet(await db.update(tags).set(updates).where(eq(tags.id, id)).returning());
+    return result;
+  }
+
+  async renameTag(id: number, newName: string): Promise<Tag | undefined> {
+    const normalizedName = newName.toLowerCase().trim();
+    const result = dbGet(await db.update(tags).set({ name: normalizedName }).where(eq(tags.id, id)).returning());
+    return result;
+  }
+
+  async deleteTag(id: number): Promise<boolean> {
+    const result = dbGet(await db.delete(tags).where(eq(tags.id, id)).returning());
+    return !!result;
   }
 
   async getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]> {

@@ -23,11 +23,13 @@ export const videosPg = pgTable("videos", {
 export const tagsSqlite = sqliteTable("tags", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  category: text("category"),
 });
 
 export const tagsPg = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: pgText("name").notNull().unique(),
+  category: pgText("category"),
 });
 
 export const videoTagsSqlite = sqliteTable("video_tags", {
@@ -70,14 +72,32 @@ export const insertTagSchema = createInsertSchema(tagsSqlite).omit({
   id: true,
 });
 
+export const updateTagSchema = z.object({
+  name: z.string().min(1).optional(),
+  category: z.string().nullable().optional(),
+});
+
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type Video = typeof videos.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
+export type UpdateTag = z.infer<typeof updateTagSchema>;
 export type Tag = typeof tags.$inferSelect;
 export type VideoTag = typeof videoTags.$inferSelect;
 export type AdminSession = typeof adminSessions.$inferSelect;
 
 export type VideoWithTags = Video & { tags: Tag[] };
+
+export const TAG_CATEGORIES = [
+  "guards",
+  "positions",
+  "submissions",
+  "sweeps",
+  "takedowns",
+  "escapes",
+  "passes",
+] as const;
+
+export type TagCategory = typeof TAG_CATEGORIES[number] | null;
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
