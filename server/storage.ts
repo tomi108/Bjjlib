@@ -217,7 +217,7 @@ export class DbStorage implements IStorage {
       .insert(adminSessions)
       .values({
         id: sessionId,
-        expiresAt: Math.floor(expiresAt.getTime() / 1000),
+        expiresAt, // Pass Date object directly, let Drizzle handle conversion
       })
       .returning();
     if (!result) throw new Error("Failed to create session");
@@ -228,7 +228,6 @@ export class DbStorage implements IStorage {
     const query = db.select().from(adminSessions).where(eq(adminSessions.id, sessionId));
     const session = dbGet(await query);
     if (!session) return undefined;
-    // Use sql to wrap the number for type safety with lt
     if (lt(adminSessions.expiresAt, sql`${Math.floor(Date.now() / 1000)}`)) {
       await this.deleteAdminSession(sessionId);
       return undefined;

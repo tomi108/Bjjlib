@@ -1,0 +1,55 @@
+Summary for Replit Agent: Changes and Actions Since YouTube API Integration Agreement
+Below is a concise yet thorough summary of all changes, actions, and file modifications made to your Bjjlib app since we agreed on implementing YouTube API integration automation. This covers the period from our initial discussion to 11:12 PM CEST on Friday, October 17, 2025, as requested for the Replit agent.
+Key Objectives
+
+Integrate YouTube API OAuth for automation.
+Preserve 70 videos, titles, and tags from the Railway PostgreSQL database.
+Resolve runtime, routing, and port conflicts in the Replit development environment.
+
+File Changes and Modifications
+
+routes.ts:
+
+Updated to include oauthRouter with /auth/youtube and /auth/youtube/callback endpoints for OAuth flow.
+Added logic to handle Google authentication, generate auth URLs, and log the Refresh Token on callback.
+Mounted oauthRouter under /auth with app.use("/auth", oauthRouter).
+
+
+index.ts:
+
+Adjusted to ensure registerRoutes is awaited and the returned server is used.
+Added port conflict handling (5000-5004) with a loop to try alternative ports.
+Modified Vite middleware to exclude /auth routes, preventing 404 errors (e.g., "Did you forget to add the page to the router?").
+Added debug logging for /auth requests ([DEBUG] Request to /auth/youtube received).
+Included sitemap generation and preserved existing middleware (e.g., cookieParser, logging).
+
+
+db.ts:
+
+Updated to use typed exports (videosTable, tagsTable, etc.) and re-export as videos, tags, etc., ensuring proper table initialization.
+Aligned dual-mode logic (SQLite for development, PostgreSQL for production) with the migrated SQLite schema, fixing Symbol(drizzle:Columns) errors.
+
+
+storage.ts:
+
+Fixed getAllVideos and getAllTags queries to resolve TypeError: Cannot read properties of undefined by simplifying joins and ensuring table access.
+Added missing private methods getTagsForVideo and syncTags to support video tag management.
+Resolved a lt operator type error in getAdminSession by using sql wrapping for number comparisons.
+Fixed admin login issue by removing manual getTime() conversion in createAdminSession, letting Drizzle handle Date to timestamp conversion per { mode: "timestamp" } schema.
+
+
+
+Other Actions and Issues Addressed
+
+Port Conflicts: Resolved multiple EADDRINUSE errors on port 5000 by identifying and killing Node.js processes (e.g., PID 6970, 7719) with lsof -i :5000 and kill -9 <PID>.
+Database Backup: Attempted to install postgresql tools via nix-env -i postgresql in Replit for backing up the Railway PostgreSQL database (postgresql://postgres:lUlPWxNxvBnBTAIWuDKDpnrVcaLpsixj@<public-host>:5432/railway). Installation was interrupted; retry planned.
+Railway Data Preservation: Planned backup of 70 videos, titles, and tags using pg_dump in Replit, avoiding local installation, with public host retrieval from Railway dashboard.
+OAuth Setup: Configured YouTube OAuth with YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, and YOUTUBE_REDIRECT_URI in Replit Secrets. Updated Google Console with redirect URIs, awaiting propagation (updated 8:46 PM CEST, target 10:46 PM CEST).
+Preview Issues: Investigated data loss in Replit preview (tags/videos disappeared), attributed to migration overwrite or reset. Railway data preservation prioritized.
+Admin Login: Debugged and fixed login failure (TypeError: value.getTime is not a function) by aligning createAdminSession with schema expectations.
+
+Current Status
+
+Replit: Port 5000 is occupied (PID 7719), preventing server start. Admin login fix awaits testing post-port resolution.
+Railway: Backup pending postgresql installation. 70 videos, titles, and tags safe until migration.
+OAuth: Propagation delay ongoing; retry planned post-10:46 PM CEST. Debug logs confirm /auth/youtube and /auth/youtube/callback are reached.
