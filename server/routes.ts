@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVideoSchema } from "@shared/schema";
+import { insertVideoSchema, updateTagSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
 
@@ -184,6 +184,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching co-occurring tags:", error);
       res.status(500).json({ message: "Failed to fetch co-occurring tags" });
+    }
+  });
+
+  app.get("/api/tags/by-category", async (req, res) => {
+    try {
+      const category = req.query.category as string | undefined;
+      const categoryValue = category === 'null' || category === undefined ? null : category;
+      
+      const tags = await storage.getTagsByCategory(categoryValue);
+      res.json(tags);
+    } catch (error) {
+      console.error("Error fetching tags by category:", error);
+      res.status(500).json({ message: "Failed to fetch tags by category" });
+    }
+  });
+
+  app.put("/api/admin/tags/:id", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid tag ID" });
+      }
+
+      const validatedData = updateTagSchema.parse(req.body);
+      const tag = await storage.updateTag(id, validatedData);
+      if (!tag) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to update tag" });
+      }
+    }
+  });
+
+  app.delete("/api/admin/tags/:id", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid tag ID" });
+      }
+
+      const deleted = await storage.deleteTag(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting tag:", error);
+      res.status(500).json({ message: "Failed to delete tag" });
     }
   });
 
