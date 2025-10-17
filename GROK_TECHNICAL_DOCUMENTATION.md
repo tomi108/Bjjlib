@@ -281,7 +281,8 @@ export const videosSqlite = sqliteTable("videos", {
 
 export const tagsSqlite = sqliteTable("tags", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique()
+  name: text("name").notNull().unique(),
+  category: text("category")  // Hierarchical organization: guards, positions, submissions, etc.
 });
 
 export const videoTagsSqlite = sqliteTable("video_tags", {
@@ -316,7 +317,8 @@ export const videosPg = pgTable("videos", {
 
 export const tagsPg = pgTable("tags", {
   id: serial("id").primaryKey(),
-  name: pgText("name").notNull().unique()
+  name: pgText("name").notNull().unique(),
+  category: pgText("category")  // Hierarchical organization: guards, positions, submissions, etc.
 });
 
 export const videoTagsPg = pgTable("video_tags", {
@@ -357,6 +359,22 @@ export const insertVideoSchema = createInsertSchema(videosSqlite)
 export const insertTagSchema = createInsertSchema(tagsSqlite)
   .omit({ id: true });
 
+export const updateTagSchema = z.object({
+  name: z.string().min(1).optional(),
+  category: z.string().nullable().optional()
+});
+
+// Predefined tag categories for organization
+export const TAG_CATEGORIES = [
+  "guards",      // Guard positions (closed guard, open guard, etc.)
+  "positions",   // Positional control (mount, side control, etc.)
+  "submissions", // Submission techniques (armbar, kimura, etc.)
+  "sweeps",      // Sweep techniques
+  "takedowns",   // Takedown techniques
+  "escapes",     // Escape techniques
+  "passes"       // Guard passing techniques
+] as const;
+
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required")
@@ -385,7 +403,7 @@ videos (1) ──────< video_tags >────── (1) tags
   │ Columns:                       Columns:│
   │ - id (PK)                      - id (PK)
   │ - title                        - name (UNIQUE)
-  │ - url                                 │
+  │ - url                          - category (nullable)
   │ - duration                            │
   │ - dateAdded                           │
   │                                       │
@@ -454,10 +472,18 @@ CREATE INDEX idx_video_tags_tag_id ON video_tags(tag_id);
   ]
 }
 
-// Example tag
+// Example tag with category
 {
   id: 1,
-  name: "armbar"
+  name: "armbar",
+  category: "submissions"  // Can be null for uncategorized tags
+}
+
+// Example uncategorized tag
+{
+  id: 2,
+  name: "fundamentals",
+  category: null
 }
 
 // Example session
@@ -1802,6 +1828,210 @@ const isAdmin = authData?.isAdmin || false;
 
 {isAdmin && <AdminPanel />}
 ```
+
+### 7.4 Hierarchical Tag Management
+
+**Purpose:** Organize tags into predefined categories for better UX and improved content discovery.
+
+**Implementation:** Tags can be assigned to categories (guards, positions, submissions, etc.) or remain uncategorized.
+
+**Tag Categories** (`shared/schema.ts`):
+```typescript
+export const TAG_CATEGORIES = [
+  "guards",      // Guard positions (closed guard, open guard, etc.)
+  "positions",   // Positional control (mount, side control, etc.)
+  "submissions", // Submission techniques (armbar, kimura, etc.)
+  "sweeps",      // Sweep techniques
+  "takedowns",   // Takedown techniques
+  "escapes",     // Escape techniques
+  "passes"       // Guard passing techniques
+] as const;
+
+export type TagCategory = typeof TAG_CATEGORIES[number] | null;
+```
+
+**Database Schema:**
+```typescript
+// Tags table includes nullable category field
+export const tagsSqlite = sqliteTable("tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  category: text("category")  // Nullable for uncategorized tags
+});
+```
+
+**Safe Migration (Zero Data Loss):**
+```typescript
+// PostgreSQL - safe column addition
+await db.execute(sql`
+  ALTER TABLE tags 
+  ADD COLUMN IF NOT EXISTS category TEXT
+`);
+
+// SQLite - safe column addition with try-catch
+try {
+  await db.run(sql`ALTER TABLE tags ADD COLUMN category TEXT`);
+} catch (e: any) {
+  if (!e.message?.includes("duplicate column")) {
+    console.error("Failed to add category column:", e.message);
+  }
+}
+```
+
+**Storage Layer** (`server/storage.ts`):
+```typescript
+// Get tags by category
+async getTagsByCategory(category: string | null): Promise<Tag[]> {
+  const tagsQuery = db
+    .selectDistinct({ id: tags.id, name: tags.name, category: tags.category })
+    .from(tags)
+    .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
+    .where(category === null ? sql`${tags.category} IS NULL` : eq(tags.category, category))
+    .orderBy(tags.name);
+  
+  return dbAll(isPostgres ? await tagsQuery : tagsQuery.all());
+}
+
+// Update tag (rename and/or change category)
+async updateTag(id: number, updates: UpdateTag): Promise<Tag | undefined> {
+  const result = dbGet(await db.update(tags)
+    .set(updates)
+    .where(eq(tags.id, id))
+    .returning());
+  return result;
+}
+
+// Rename tag (updates all associated videos)
+async renameTag(id: number, newName: string): Promise<Tag | undefined> {
+  const normalizedName = newName.toLowerCase().trim();
+  const result = dbGet(await db.update(tags)
+    .set({ name: normalizedName })
+    .where(eq(tags.id, id))
+    .returning());
+  return result;
+}
+```
+
+**API Routes** (`server/routes.ts`):
+```typescript
+// Get tags by category
+app.get("/api/tags/by-category", async (req, res) => {
+  const category = req.query.category as string | undefined;
+  const categoryValue = category === 'null' || category === undefined ? null : category;
+  
+  const tags = await storage.getTagsByCategory(categoryValue);
+  res.json(tags);
+});
+
+// Update tag (admin only)
+app.put("/api/admin/tags/:id", async (req, res) => {
+  // Auth check
+  const sessionId = req.cookies.adminSessionId;
+  if (!sessionId) return res.status(401).json({ message: "Authentication required" });
+  
+  const session = await storage.getAdminSession(sessionId);
+  if (!session) {
+    res.clearCookie('adminSessionId');
+    return res.status(401).json({ message: "Invalid or expired session" });
+  }
+  
+  const id = parseInt(req.params.id);
+  const validatedData = updateTagSchema.parse(req.body);
+  const tag = await storage.updateTag(id, validatedData);
+  
+  if (!tag) return res.status(404).json({ message: "Tag not found" });
+  res.json(tag);
+});
+```
+
+**Admin UI** (`client/src/components/admin-tab.tsx`):
+```typescript
+function TagManagerCard({ allTags }: { allTags: Tag[] }) {
+  // Group tags by category
+  const groupedTags = allTags.reduce((acc, tag) => {
+    const category = tag.category || "uncategorized";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(tag);
+    return acc;
+  }, {} as Record<string, Tag[]>);
+
+  // Sort categories in predefined order
+  const categoryOrder = [...TAG_CATEGORIES, "uncategorized"];
+  const sortedCategories = categoryOrder.filter(cat => groupedTags[cat]?.length > 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Tag Manager ({allTags.length} tags)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {sortedCategories.map(category => (
+          <div key={category}>
+            <h3>{category}</h3>
+            {groupedTags[category].map(tag => (
+              <div key={tag.id}>
+                <Badge>{tag.name}</Badge>
+                {/* Quick category change dropdown */}
+                <Select
+                  value={tag.category || "uncategorized"}
+                  onValueChange={(value) => updateTagCategory(tag.id, value)}
+                >
+                  {TAG_CATEGORIES.map(cat => (
+                    <SelectItem value={cat}>{cat}</SelectItem>
+                  ))}
+                  <SelectItem value="uncategorized">uncategorized</SelectItem>
+                </Select>
+                {/* Edit and delete buttons */}
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+**Frontend Display** (`client/src/pages/home.tsx`):
+```typescript
+// Group available tags by category
+const groupedTags = availableTags.reduce((acc, tag) => {
+  const category = tag.category || "uncategorized";
+  if (!acc[category]) acc[category] = [];
+  acc[category].push(tag);
+  return acc;
+}, {} as Record<string, Tag[]>);
+
+// Display tags in category sections
+{sortedCategories.map(category => (
+  <div key={category}>
+    <h3 className="text-blue-400 uppercase">
+      {category === "uncategorized" ? "Available tags" : category}
+    </h3>
+    <div className="flex flex-wrap gap-2">
+      {groupedTags[category].map(tag => (
+        <button onClick={() => toggleTag(tag.id)}>
+          {tag.name}
+        </button>
+      ))}
+    </div>
+  </div>
+))}
+```
+
+**Benefits:**
+1. **Better Organization:** Tags grouped by technique type improve browsability
+2. **Improved UX:** Users can find relevant tags faster when organized by category
+3. **Flexible:** Tags can remain uncategorized, categories can be changed
+4. **Safe Migration:** Existing data preserved via nullable category column
+5. **Admin Control:** Full tag management (rename, categorize, delete) via admin UI
+
+**Migration Safety Notes:**
+- Uses `ALTER TABLE ADD COLUMN IF NOT EXISTS` (PostgreSQL)
+- Try-catch pattern for SQLite (checks for "duplicate column" error)
+- All existing tags default to `category = null` (uncategorized)
+- Zero data loss - all tag names and video associations preserved
+- Column is nullable, so no NOT NULL constraint issues
 
 ---
 
