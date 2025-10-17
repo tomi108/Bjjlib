@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertVideoSchema, InsertVideo, VideoWithTags, Tag } from "@shared/schema";
+import { insertVideoSchema, InsertVideo, VideoWithTags, Tag, TAG_CATEGORIES } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagAutosuggest } from "@/components/tag-autosuggest";
-import { Trash2, X, VideoIcon, Loader2, Pencil } from "lucide-react";
+import { Trash2, X, VideoIcon, Loader2, Pencil, Tags } from "lucide-react";
 import { Link } from "wouter";
 
 async function fetchYouTubeTitle(url: string): Promise<string | null> {
@@ -460,6 +462,270 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
           )}
         </CardContent>
       </Card>
+
+      <TagManagerCard allTags={allTags} />
     </div>
+  );
+}
+
+function TagManagerCard({ allTags }: { allTags: Tag[] }) {
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const updateTagMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: { name?: string; category?: string | null } }) => {
+      const response = await apiRequest("PUT", `/api/admin/tags/${id}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Tag updated",
+        description: "The tag has been updated successfully",
+      });
+      setEditingTag(null);
+      setNewName("");
+      setNewCategory(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating tag",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/tags/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Tag deleted",
+        description: "The tag has been deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error deleting tag",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const groupedTags = allTags.reduce((acc, tag) => {
+    const category = tag.category || "uncategorized";
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(tag);
+    return acc;
+  }, {} as Record<string, Tag[]>);
+
+  const categoryOrder = [...TAG_CATEGORIES, "uncategorized"];
+  const sortedCategories = categoryOrder.filter(cat => groupedTags[cat]?.length > 0);
+
+  const handleEditTag = (tag: Tag) => {
+    setEditingTag(tag);
+    setNewName(tag.name);
+    setNewCategory(tag.category || null);
+  };
+
+  const handleSaveTag = () => {
+    if (!editingTag) return;
+    
+    const updates: { name?: string; category?: string | null } = {};
+    if (newName && newName !== editingTag.name) {
+      updates.name = newName;
+    }
+    if (newCategory !== editingTag.category) {
+      updates.category = newCategory;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateTagMutation.mutate({ id: editingTag.id, updates });
+    } else {
+      setEditingTag(null);
+    }
+  };
+
+  const handleQuickCategoryChange = (tag: Tag, category: string | null) => {
+    updateTagMutation.mutate({ 
+      id: tag.id, 
+      updates: { category } 
+    });
+  };
+
+  return (
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Tags className="w-5 h-5" />
+          Tag Manager ({allTags.length} tags)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {allTags.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            No tags yet. Tags are created when you add videos.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {sortedCategories.map(category => (
+              <div key={category} className="space-y-2">
+                <h3 className="text-sm font-semibold text-blue-400 uppercase">
+                  {category}
+                </h3>
+                <div className="grid gap-2">
+                  {groupedTags[category].map(tag => (
+                    <div
+                      key={tag.id}
+                      className="flex items-center gap-2 p-3 bg-gray-800 rounded-lg border border-gray-700"
+                      data-testid={`tag-item-${tag.id}`}
+                    >
+                      <Badge className="bg-blue-600">{tag.name}</Badge>
+                      
+                      <div className="flex-1 flex items-center gap-2">
+                        <Select
+                          value={tag.category || "uncategorized"}
+                          onValueChange={(value) => handleQuickCategoryChange(tag, value === "uncategorized" ? null : value)}
+                          disabled={updateTagMutation.isPending}
+                        >
+                          <SelectTrigger className="w-[140px] h-8 bg-gray-900 border-gray-600 text-xs" data-testid={`select-category-${tag.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-gray-700">
+                            {TAG_CATEGORIES.map(cat => (
+                              <SelectItem key={cat} value={cat} className="text-xs">
+                                {cat}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="uncategorized" className="text-xs">
+                              uncategorized
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex gap-1">
+                        <Dialog open={editingTag?.id === tag.id} onOpenChange={(open) => !open && setEditingTag(null)}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-blue-500"
+                              onClick={() => handleEditTag(tag)}
+                              data-testid={`button-edit-tag-${tag.id}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-gray-900 border-gray-800">
+                            <DialogHeader>
+                              <DialogTitle>Edit Tag</DialogTitle>
+                              <DialogDescription className="text-gray-400">
+                                Rename this tag or change its category. Changes will apply to all videos.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Tag Name</label>
+                                <Input
+                                  value={newName}
+                                  onChange={(e) => setNewName(e.target.value)}
+                                  className="bg-gray-800 border-gray-700"
+                                  placeholder="Tag name"
+                                  data-testid="input-edit-tag-name"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Category</label>
+                                <Select
+                                  value={newCategory || "uncategorized"}
+                                  onValueChange={(value) => setNewCategory(value === "uncategorized" ? null : value)}
+                                >
+                                  <SelectTrigger className="bg-gray-800 border-gray-700" data-testid="select-edit-tag-category">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-gray-900 border-gray-700">
+                                    {TAG_CATEGORIES.map(cat => (
+                                      <SelectItem key={cat} value={cat}>
+                                        {cat}
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="uncategorized">
+                                      uncategorized
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setEditingTag(null)}
+                                className="border-gray-700 hover:bg-gray-800"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={handleSaveTag}
+                                className="bg-blue-600 hover:bg-blue-700"
+                                disabled={updateTagMutation.isPending || !newName}
+                                data-testid="button-save-tag"
+                              >
+                                {updateTagMutation.isPending ? "Saving..." : "Save"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-red-500"
+                              data-testid={`button-delete-tag-${tag.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-gray-900 border-gray-800">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Tag</AlertDialogTitle>
+                              <AlertDialogDescription className="text-gray-400">
+                                Are you sure you want to delete "{tag.name}"? This will remove it from all videos.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="border-gray-700 hover:bg-gray-800">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteTagMutation.mutate(tag.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                                data-testid={`button-confirm-delete-tag-${tag.id}`}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
