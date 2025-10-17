@@ -61,8 +61,7 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design:**
 - `videos` table: Stores video metadata (title, URL, duration, tags array, timestamps).
-- `tags` table: Manages tag taxonomy with video counts and optional category assignment.
-- `tag_categories` table: Hierarchical tag organization with custom display order.
+- `tags` table: Manages tag taxonomy with video counts.
 - `admin_sessions` table: Stores admin session data.
 - UUID primary keys.
 - Array column type for video tags.
@@ -71,9 +70,6 @@ Preferred communication style: Simple, everyday language.
 **Design Rationale:**
 - Array-based tags simplify queries.
 - Tag count denormalization improves read performance.
-- Hierarchical categories allow custom tag organization (e.g., Guards, Submissions, Sweeps).
-- Tags can be categorized or remain uncategorized for flexibility.
-- Display order enables custom category sequencing on home page.
 - Shared schema definitions ensure type consistency.
 - Production uses PostgreSQL for persistence, development uses SQLite.
 
@@ -136,19 +132,6 @@ Preferred communication style: Simple, everyday language.
   - No quota limits or authentication required
   - Durations persist to database after first fetch for instant subsequent loads
   - Implementation: `client/src/lib/youtube-duration.ts`
-
-### Hierarchical Tag Categories
-- **Tag Organization System**: Admin-controlled hierarchical categorization of tags
-  - Categories (e.g., "Guards", "Submissions", "Sweeps") group related tags
-  - Custom display order determines category sequence on home page
-  - Tags can belong to one category or remain uncategorized
-  - Admin features:
-    - Create, rename, delete categories
-    - Move tags between categories or to uncategorized
-    - Rename tags across all videos (cascading updates)
-    - Reorder categories via up/down buttons
-  - Frontend displays tags grouped by category, with uncategorized tags shown last
-  - Implementation: `shared/schema.ts` (tag_categories table), `server/storage.ts` (category CRUD), `client/src/components/admin-tab.tsx` (UI)
 
 ### Smart Tag Filtering
 - **Intelligent Available Tags**: Shows only tags that would actually narrow down search results

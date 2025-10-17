@@ -3,7 +3,7 @@ import { drizzle as drizzlePostgres } from "drizzle-orm/node-postgres";
 import Database from "better-sqlite3";
 import pkg from "pg";
 const { Pool } = pkg;
-import { videosSqlite, tagsSqlite, videoTagsSqlite, adminSessionsSqlite, tagCategoriesSqlite, videosPg, tagsPg, videoTagsPg, adminSessionsPg, tagCategoriesPg } from "@shared/schema";
+import { videosSqlite, tagsSqlite, videoTagsSqlite, adminSessionsSqlite, videosPg, tagsPg, videoTagsPg, adminSessionsPg } from "@shared/schema";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -19,7 +19,6 @@ export let videos: any;
 export let tags: any;
 export let videoTags: any;
 export let adminSessions: any;
-export let tagCategories: any;
 
 if (NODE_ENV === "production" && DATABASE_URL) {
   const pool = new Pool({
@@ -27,7 +26,7 @@ if (NODE_ENV === "production" && DATABASE_URL) {
     ssl: DATABASE_URL.includes('railway.app') ? { rejectUnauthorized: false } : false
   });
   
-  const schema = { videos: videosPg, tags: tagsPg, videoTags: videoTagsPg, adminSessions: adminSessionsPg, tagCategories: tagCategoriesPg };
+  const schema = { videos: videosPg, tags: tagsPg, videoTags: videoTagsPg, adminSessions: adminSessionsPg };
   db = drizzlePostgres(pool, { schema });
   isPostgres = true;
   
@@ -35,13 +34,12 @@ if (NODE_ENV === "production" && DATABASE_URL) {
   tags = tagsPg;
   videoTags = videoTagsPg;
   adminSessions = adminSessionsPg;
-  tagCategories = tagCategoriesPg;
   
   console.log("✅ Using PostgreSQL database (Production - Railway)");
 } else {
   const sqlite = new Database(join(__dirname, "..", "bjjlib.db"));
   sqlite.pragma("journal_mode = WAL");
-  const schema = { videos: videosSqlite, tags: tagsSqlite, videoTags: videoTagsSqlite, adminSessions: adminSessionsSqlite, tagCategories: tagCategoriesSqlite };
+  const schema = { videos: videosSqlite, tags: tagsSqlite, videoTags: videoTagsSqlite, adminSessions: adminSessionsSqlite };
   db = drizzleSqlite(sqlite, { schema });
   isPostgres = false;
   
@@ -49,7 +47,6 @@ if (NODE_ENV === "production" && DATABASE_URL) {
   tags = tagsSqlite;
   videoTags = videoTagsSqlite;
   adminSessions = adminSessionsSqlite;
-  tagCategories = tagCategoriesSqlite;
   
   console.log("✅ Using SQLite database (Development)");
 }
