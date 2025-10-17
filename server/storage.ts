@@ -1,5 +1,5 @@
-import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession } from "@shared/schema";
-import { db, isPostgres, videos, tags, videoTags, adminSessions } from "./db";
+import { type Video, type InsertVideo, type Tag, type InsertTag, type VideoWithTags, type AdminSession, type TagCategory, type InsertTagCategory, type TagWithCategory, type CategoryWithTags } from "@shared/schema";
+import { db, isPostgres, videos, tags, videoTags, adminSessions, tagCategories } from "./db";
 import { eq, sql, and, inArray, lt } from "drizzle-orm";
 
 export interface IStorage {
@@ -14,8 +14,16 @@ export interface IStorage {
   getTag(id: number): Promise<Tag | undefined>;
   getTagByName(name: string): Promise<Tag | undefined>;
   createOrGetTag(name: string): Promise<Tag>;
+  renameTag(id: number, newName: string): Promise<Tag | undefined>;
+  moveTagToCategory(tagId: number, categoryId: number | null): Promise<Tag | undefined>;
   
   getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]>;
+  
+  getAllTagCategories(): Promise<CategoryWithTags[]>;
+  getTagCategory(id: number): Promise<TagCategory | undefined>;
+  createTagCategory(category: InsertTagCategory): Promise<TagCategory>;
+  updateTagCategory(id: number, updates: Partial<InsertTagCategory>): Promise<TagCategory | undefined>;
+  deleteTagCategory(id: number): Promise<boolean>;
   
   createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession>;
   getAdminSession(sessionId: string): Promise<AdminSession | undefined>;
@@ -56,10 +64,25 @@ export class DbStorage implements IStorage {
         `);
 
         await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS tag_categories (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        await db.execute(sql`
           CREATE TABLE IF NOT EXISTS tags (
             id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            category_id INTEGER REFERENCES tag_categories(id) ON DELETE SET NULL
           )
+        `);
+        
+        await db.execute(sql`
+          ALTER TABLE tags 
+          ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES tag_categories(id) ON DELETE SET NULL
         `);
 
         await db.execute(sql`
@@ -101,11 +124,30 @@ export class DbStorage implements IStorage {
         }
 
         await db.run(sql`
-          CREATE TABLE IF NOT EXISTS tags (
+          CREATE TABLE IF NOT EXISTS tag_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
           )
         `);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            category_id INTEGER,
+            FOREIGN KEY (category_id) REFERENCES tag_categories(id) ON DELETE SET NULL
+          )
+        `);
+        
+        try {
+          await db.run(sql`ALTER TABLE tags ADD COLUMN category_id INTEGER REFERENCES tag_categories(id) ON DELETE SET NULL`);
+        } catch (e: any) {
+          if (!e.message?.includes("duplicate column")) {
+            console.error("Failed to add category_id column:", e.message);
+          }
+        }
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS video_tags (
@@ -354,6 +396,17 @@ export class DbStorage implements IStorage {
     return result;
   }
 
+  async renameTag(id: number, newName: string): Promise<Tag | undefined> {
+    const normalizedName = newName.toLowerCase().trim();
+    const result = dbGet(await db.update(tags).set({ name: normalizedName }).where(eq(tags.id, id)).returning());
+    return result;
+  }
+
+  async moveTagToCategory(tagId: number, categoryId: number | null): Promise<Tag | undefined> {
+    const result = dbGet(await db.update(tags).set({ categoryId }).where(eq(tags.id, tagId)).returning());
+    return result;
+  }
+
   async getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]> {
     if (selectedTagIds.length === 0) {
       return this.getAllTags();
@@ -406,6 +459,50 @@ export class DbStorage implements IStorage {
     
     const result = isPostgres ? await tagsQuery : tagsQuery.all();
     return dbAll(result);
+  }
+
+  async getAllTagCategories(): Promise<CategoryWithTags[]> {
+    const categoriesQuery = db.select().from(tagCategories).orderBy(tagCategories.displayOrder, tagCategories.name);
+    const allCategories = isPostgres ? await categoriesQuery : categoriesQuery.all();
+    const categoriesArray = dbAll(allCategories);
+
+    const categoriesWithTags: CategoryWithTags[] = [];
+    for (const category of categoriesArray) {
+      const categoryTagsQuery = db
+        .select()
+        .from(tags)
+        .where(eq(tags.categoryId, category.id))
+        .orderBy(tags.name);
+      
+      const categoryTags = isPostgres ? await categoryTagsQuery : categoryTagsQuery.all();
+      categoriesWithTags.push({
+        ...category,
+        tags: dbAll(categoryTags),
+      });
+    }
+
+    return categoriesWithTags;
+  }
+
+  async getTagCategory(id: number): Promise<TagCategory | undefined> {
+    const query = db.select().from(tagCategories).where(eq(tagCategories.id, id));
+    return dbGet(isPostgres ? await query : query.get());
+  }
+
+  async createTagCategory(category: InsertTagCategory): Promise<TagCategory> {
+    const result = dbGet(await db.insert(tagCategories).values(category).returning());
+    if (!result) throw new Error("Failed to create tag category");
+    return result;
+  }
+
+  async updateTagCategory(id: number, updates: Partial<InsertTagCategory>): Promise<TagCategory | undefined> {
+    const result = dbGet(await db.update(tagCategories).set(updates).where(eq(tagCategories.id, id)).returning());
+    return result;
+  }
+
+  async deleteTagCategory(id: number): Promise<boolean> {
+    const result = dbGet(await db.delete(tagCategories).where(eq(tagCategories.id, id)).returning());
+    return !!result;
   }
 
   async createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession> {

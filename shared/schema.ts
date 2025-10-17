@@ -20,14 +20,30 @@ export const videosPg = pgTable("videos", {
   dateAdded: timestamp("date_added").notNull().defaultNow(),
 });
 
+export const tagCategoriesSqlite = sqliteTable("tag_categories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+export const tagCategoriesPg = pgTable("tag_categories", {
+  id: serial("id").primaryKey(),
+  name: pgText("name").notNull().unique(),
+  displayOrder: pgInteger("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const tagsSqlite = sqliteTable("tags", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  categoryId: integer("category_id").references(() => tagCategoriesSqlite.id, { onDelete: "set null" }),
 });
 
 export const tagsPg = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: pgText("name").notNull().unique(),
+  categoryId: pgInteger("category_id"),
 });
 
 export const videoTagsSqlite = sqliteTable("video_tags", {
@@ -58,6 +74,7 @@ export let videos = videosSqlite;
 export let tags = tagsSqlite;
 export let videoTags = videoTagsSqlite;
 export let adminSessions = adminSessionsSqlite;
+export let tagCategories = tagCategoriesSqlite;
 
 export const insertVideoSchema = createInsertSchema(videosSqlite).omit({
   id: true,
@@ -70,14 +87,23 @@ export const insertTagSchema = createInsertSchema(tagsSqlite).omit({
   id: true,
 });
 
+export const insertTagCategorySchema = createInsertSchema(tagCategoriesSqlite).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type Video = typeof videos.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
 export type Tag = typeof tags.$inferSelect;
 export type VideoTag = typeof videoTags.$inferSelect;
 export type AdminSession = typeof adminSessions.$inferSelect;
+export type TagCategory = typeof tagCategories.$inferSelect;
+export type InsertTagCategory = z.infer<typeof insertTagCategorySchema>;
 
 export type VideoWithTags = Video & { tags: Tag[] };
+export type TagWithCategory = Tag & { category: TagCategory | null };
+export type CategoryWithTags = TagCategory & { tags: Tag[] };
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
