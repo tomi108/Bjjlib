@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch, Link } from "wouter";
-import { VideoWithTags, Tag } from "@shared/schema";
+import { VideoWithTags, Tag, CategoryWithTags } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -220,6 +220,10 @@ export default function Home() {
     queryKey: ["/api/tags"],
   });
 
+  const { data: tagCategories = [] } = useQuery<CategoryWithTags[]>({
+    queryKey: ["/api/tag-categories"],
+  });
+
   const videos = videosData?.videos || [];
   const totalVideos = videosData?.total || 0;
   const totalPages = Math.ceil(totalVideos / 20);
@@ -428,25 +432,63 @@ export default function Home() {
             </div>
           )}
 
-          <div>
-            <h3 className="text-sm font-medium mb-2">Available tags</h3>
-            <div className="flex flex-wrap gap-2" role="list" aria-label="Available filter tags">
-              {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).map(tag => {
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTag(tag.id)}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
-                    data-testid={`tag-filter-${tag.id}`}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-              {availableTags.filter(tag => !selectedTagIds.includes(tag.id)).length === 0 && selectedTagIds.length > 0 && (
-                <p className="text-sm text-gray-400">No co-occurring tags found</p>
-              )}
-            </div>
+          <div className="space-y-4">
+            {tagCategories.map(category => {
+              const categoryTagIds = new Set(category.tags.map(t => t.id));
+              const visibleCategoryTags = availableTags.filter(tag => 
+                categoryTagIds.has(tag.id) && !selectedTagIds.includes(tag.id)
+              );
+              
+              if (visibleCategoryTags.length === 0) return null;
+              
+              return (
+                <div key={category.id}>
+                  <h3 className="text-sm font-medium mb-2">{category.name}</h3>
+                  <div className="flex flex-wrap gap-2" role="list" aria-label={`${category.name} filter tags`}>
+                    {visibleCategoryTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(tag.id)}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
+                        data-testid={`tag-filter-${tag.id}`}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {(() => {
+              const allCategorizedTagIds = new Set(tagCategories.flatMap(c => c.tags.map(t => t.id)));
+              const uncategorizedTags = availableTags.filter(tag => 
+                !allCategorizedTagIds.has(tag.id) && !selectedTagIds.includes(tag.id)
+              );
+              
+              if (uncategorizedTags.length === 0 && tagCategories.length > 0) return null;
+              
+              return (
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Available tags</h3>
+                  <div className="flex flex-wrap gap-2" role="list" aria-label="Available filter tags">
+                    {uncategorizedTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(tag.id)}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
+                        data-testid={`tag-filter-${tag.id}`}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                    {uncategorizedTags.length === 0 && availableTags.filter(tag => !selectedTagIds.includes(tag.id)).length === 0 && selectedTagIds.length > 0 && (
+                      <p className="text-sm text-gray-400">No co-occurring tags found</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
