@@ -1,20 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Helper to get session ID from localStorage
-function getSessionId(): string | null {
-  return localStorage.getItem("adminSessionId");
-}
-
-// Helper to create headers with session ID
-function getHeaders(additionalHeaders: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...additionalHeaders };
-  const sessionId = getSessionId();
-  if (sessionId) {
-    headers["X-Session-ID"] = sessionId;
-  }
-  return headers;
-}
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -29,7 +14,7 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
-    headers: getHeaders(data ? { "Content-Type": "application/json" } : {}),
+    headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -45,7 +30,6 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
-      headers: getHeaders(),
       credentials: "include",
     });
 

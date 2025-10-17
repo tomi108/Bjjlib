@@ -4,67 +4,22 @@ import { storage } from "./storage";
 import { insertVideoSchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
-import { google } from "googleapis"; // Import googleapis
-import express from "express"; // Explicitly import express for router
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDatabase();
-
-  // YouTube OAuth Router
-  const oauthRouter = express.Router();
-
-  oauthRouter.get("/auth/youtube", (req, res) => {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.NODE_ENV === "development" || req.headers.host?.includes("localhost")
-        ? "http://localhost:5000/auth/youtube/callback"
-        : process.env.YOUTUBE_REDIRECT_URI
-    );
-
-    const scopes = ["https://www.googleapis.com/auth/youtube"];
-    const url = oauth2Client.generateAuthUrl({
-      access_type: "offline",
-      scope: scopes,
-    });
-    res.redirect(url);
-  });
-
-  oauthRouter.get("/auth/youtube/callback", async (req, res) => {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.NODE_ENV === "development" || req.headers.host?.includes("localhost")
-        ? "http://localhost:5000/auth/youtube/callback"
-        : process.env.YOUTUBE_REDIRECT_URI
-    );
-
-    const code = req.query.code as string;
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-    console.log("Refresh Token:", tokens.refresh_token); // Log for testing
-    // Store tokens.refresh_token in session/env as needed (e.g., req.session.refreshToken = tokens.refresh_token)
-    res.send("Authentication successful! Check console for refresh token.");
-  });
-
-  // Mount OAuth routes
-  app.use("/auth", oauthRouter);
-
-  // Existing Health Check
+  
   app.get("/api/health", (_req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
   });
 
-  // Existing Video APIs
   app.get("/api/videos", async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const search = req.query.search as string;
       const tagIdsParam = req.query.tagIds as string;
-      const tagIds = tagIdsParam
-        ? tagIdsParam.split(",").map((id) => parseInt(id)).filter((id) => !isNaN(id))
-        : [];
+      const tagIds = tagIdsParam ? tagIdsParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+
       const result = await storage.getAllVideos({ page, limit, search, tagIds });
       res.json(result);
     } catch (error) {
@@ -79,6 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
       }
+
       const video = await storage.getVideo(id);
       if (!video) {
         return res.status(404).json({ message: "Video not found" });
@@ -92,21 +48,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/videos", async (req, res) => {
     try {
-      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
-
+      const sessionId = req.cookies.adminSessionId;
+      
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       const session = await storage.getAdminSession(sessionId);
-
+      
       if (!session) {
-        res.clearCookie("adminSessionId");
+        res.clearCookie('adminSessionId');
         return res.status(401).json({ message: "Invalid or expired session" });
       }
-
+      
       const validatedData = insertVideoSchema.parse(req.body);
-
+      
       const video = await storage.createVideo(validatedData);
       res.status(201).json(video);
     } catch (error) {
@@ -120,23 +76,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/videos/:id", async (req, res) => {
     try {
-      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
-
+      const sessionId = req.cookies.adminSessionId;
+      
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       const session = await storage.getAdminSession(sessionId);
-
+      
       if (!session) {
-        res.clearCookie("adminSessionId");
+        res.clearCookie('adminSessionId');
         return res.status(401).json({ message: "Invalid or expired session" });
       }
-
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
       }
+
       const validatedData = insertVideoSchema.partial().parse(req.body);
       const video = await storage.updateVideo(id, validatedData);
       if (!video) {
@@ -158,15 +115,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
       }
+
       const { duration } = req.body;
-      if (!duration || typeof duration !== "string") {
+      if (!duration || typeof duration !== 'string') {
         return res.status(400).json({ message: "Duration is required" });
       }
+
       const updated = await storage.updateVideoDuration(id, duration);
       if (!updated) {
         return res.status(404).json({ message: "Video not found" });
       }
-
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating video duration:", error);
@@ -176,23 +135,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/videos/:id", async (req, res) => {
     try {
-      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
-
+      const sessionId = req.cookies.adminSessionId;
+      
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-
+      
       const session = await storage.getAdminSession(sessionId);
-
+      
       if (!session) {
-        res.clearCookie("adminSessionId");
+        res.clearCookie('adminSessionId');
         return res.status(401).json({ message: "Invalid or expired session" });
       }
-
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid video ID" });
       }
+
       const deleted = await storage.deleteVideo(id);
       if (!deleted) {
         return res.status(404).json({ message: "Video not found" });
@@ -204,7 +164,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Existing Tag APIs
   app.get("/api/tags", async (_req, res) => {
     try {
       const tags = await storage.getAllTags();
@@ -218,13 +177,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tags/co-occurring", async (req, res) => {
     try {
       const tagIdsParam = req.query.tagIds as string;
-      const selectedTagIds = tagIdsParam
-        ? tagIdsParam
-            .split(",")
-            .map((id) => parseInt(id))
-            .filter((id) => !isNaN(id))
-        : [];
-
+      const selectedTagIds = tagIdsParam ? tagIdsParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+      
       const tags = await storage.getCoOccurringTags(selectedTagIds);
       res.json(tags);
     } catch (error) {
@@ -233,21 +187,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Existing Admin APIs
   app.post("/api/admin/login", async (req, res) => {
     try {
       const { password } = req.body;
-
+      
       if (!password || password !== process.env.ADMIN_PASSWORD) {
         return res.status(401).json({ message: "Invalid password" });
       }
-      const sessionId = randomBytes(32).toString("hex");
+
+      const sessionId = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
+      
       await storage.createAdminSession(sessionId, expiresAt);
-
-      // Return sessionId in response for localStorage storage
-      res.json({ isAdmin: true, sessionId });
+      
+      res.cookie('adminSessionId', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        expires: expiresAt
+      });
+      
+      res.json({ isAdmin: true });
     } catch (error) {
       console.error("Error logging in:", error);
       res.status(500).json({ message: "Failed to log in" });
@@ -256,12 +216,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/logout", async (req, res) => {
     try {
-      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
-
+      const sessionId = req.cookies.adminSessionId;
+      
       if (sessionId) {
         await storage.deleteAdminSession(sessionId);
       }
-
+      
+      res.clearCookie('adminSessionId');
       res.json({ success: true });
     } catch (error) {
       console.error("Error logging out:", error);
@@ -271,31 +232,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/session", async (req, res) => {
     try {
-      // Check header first, then fall back to cookie for backward compatibility
-      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
-
+      const sessionId = req.cookies.adminSessionId;
+      
       if (!sessionId) {
         return res.json({ isAdmin: false });
       }
-
+      
       const session = await storage.getAdminSession(sessionId);
-
+      
       if (!session) {
+        res.clearCookie('adminSessionId');
         return res.json({ isAdmin: false });
       }
-
-      res.json({ isAdmin: true, sessionId });
+      
+      res.json({ isAdmin: true });
     } catch (error) {
       console.error("Error checking session:", error);
       res.status(500).json({ message: "Failed to check session" });
     }
   });
 
-  // Existing Thumbnail Analysis
-  const thumbnailAnalysisCache = new Map<
-    string,
-    { leftBar: number; rightBar: number; totalPercent: number }
-  >();
+  const thumbnailAnalysisCache = new Map<string, { leftBar: number; rightBar: number; totalPercent: number }>();
+
   // Clear cache endpoint (for testing/debugging)
   app.post("/api/clear-thumbnail-cache", (_req, res) => {
     const size = thumbnailAnalysisCache.size;
@@ -307,97 +265,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analyze-thumbnail", async (req, res) => {
     try {
       const thumbnailUrl = req.query.url as string;
-
+      
       if (!thumbnailUrl) {
         return res.status(400).json({ message: "Missing url parameter" });
       }
+
       const allowedHosts = [
-        "i.ytimg.com",
-        "img.youtube.com",
-        "i.vimeocdn.com",
-        "vumbnail.com",
+        'i.ytimg.com',
+        'img.youtube.com',
+        'i.vimeocdn.com',
+        'vumbnail.com'
       ];
+
       let url: URL;
       try {
         url = new URL(thumbnailUrl);
       } catch {
         return res.status(400).json({ message: "Invalid URL" });
       }
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
+
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
         return res.status(400).json({ message: "Only HTTP/HTTPS URLs allowed" });
       }
+
       if (!allowedHosts.includes(url.hostname)) {
         return res.status(400).json({ message: "URL host not allowed" });
       }
+
       if (thumbnailAnalysisCache.has(thumbnailUrl)) {
         return res.json(thumbnailAnalysisCache.get(thumbnailUrl));
       }
+
       const response = await fetch(thumbnailUrl);
       if (!response.ok) {
         return res.status(404).json({ message: "Failed to fetch thumbnail" });
       }
+
       const buffer = await response.arrayBuffer();
       const image = sharp(Buffer.from(buffer));
       const metadata = await image.metadata();
+
       if (!metadata.width || !metadata.height) {
         return res.status(400).json({ message: "Invalid image" });
       }
+
       const scaleFactor = 0.25;
       const scaledWidth = Math.floor(metadata.width * scaleFactor);
       const scaledHeight = Math.floor(metadata.height * scaleFactor);
+
       const { data, info } = await image
         .resize(scaledWidth, scaledHeight)
         .raw()
         .toBuffer({ resolveWithObject: true });
+
       // Helper: Calculate RGB variance (std dev) for a column
-      const calculateColumnVariance = (x: number): {
-        variance: number;
-        avgR: number;
-        avgG: number;
-        avgB: number;
-      } => {
+      const calculateColumnVariance = (x: number): { variance: number; avgR: number; avgG: number; avgB: number } => {
         const channels = info.channels;
         const sampleStep = 5;
         const samples: { r: number; g: number; b: number }[] = [];
-
+        
         for (let y = 0; y < info.height; y += sampleStep) {
           const index = (y * info.width + x) * channels;
           samples.push({
             r: data[index],
             g: data[index + 1],
-            b: data[index + 2],
+            b: data[index + 2]
           });
         }
-
+        
         if (samples.length < 10) {
           return { variance: 0, avgR: 0, avgG: 0, avgB: 0 };
         }
-
+        
         // Calculate average RGB
         const avgR = samples.reduce((sum, s) => sum + s.r, 0) / samples.length;
         const avgG = samples.reduce((sum, s) => sum + s.g, 0) / samples.length;
         const avgB = samples.reduce((sum, s) => sum + s.b, 0) / samples.length;
-
+        
         // Calculate RGB variance (average of channel variances)
         const varR = samples.reduce((sum, s) => sum + Math.pow(s.r - avgR, 2), 0) / samples.length;
         const varG = samples.reduce((sum, s) => sum + Math.pow(s.g - avgG, 2), 0) / samples.length;
         const varB = samples.reduce((sum, s) => sum + Math.pow(s.b - avgB, 2), 0) / samples.length;
         const variance = Math.sqrt((varR + varG + varB) / 3);
-
+        
         return { variance, avgR, avgG, avgB };
       };
-
+      
       // Calculate center region stats (middle 40%)
       const centerStart = Math.floor(info.width * 0.3);
       const centerEnd = Math.floor(info.width * 0.7);
       let centerVarianceSum = 0;
-      let centerRSum = 0,
-        centerGSum = 0,
-        centerBSum = 0;
+      let centerRSum = 0, centerGSum = 0, centerBSum = 0;
       let centerColumns = 0;
-
-      for (let x = centerStart; x < centerEnd; x += 3) {
-        // Sample every 3rd column for efficiency
+      
+      for (let x = centerStart; x < centerEnd; x += 3) { // Sample every 3rd column for efficiency
         const stats = calculateColumnVariance(x);
         centerVarianceSum += stats.variance;
         centerRSum += stats.avgR;
@@ -405,32 +366,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         centerBSum += stats.avgB;
         centerColumns++;
       }
-
+      
       // Guard against division by zero for very narrow images
       if (centerColumns === 0) {
         return res.json({ leftBar: 0, rightBar: 0, totalPercent: 0 });
       }
+
       const centerAvgVariance = centerVarianceSum / centerColumns;
       const centerAvgR = centerRSum / centerColumns;
       const centerAvgG = centerGSum / centerColumns;
       const centerAvgB = centerBSum / centerColumns;
-
+      
       // Helper: Check if column is a bar (uniform + different from center)
       const isColumnBar = (x: number): boolean => {
         const stats = calculateColumnVariance(x);
-
+        
         // Column must be uniform (low variance)
         if (stats.variance >= 30) {
           return false;
         }
-
+        
         // Calculate RGB distance from center
         const rgbDistance = Math.sqrt(
           Math.pow(stats.avgR - centerAvgR, 2) +
-            Math.pow(stats.avgG - centerAvgG, 2) +
-            Math.pow(stats.avgB - centerAvgB, 2)
+          Math.pow(stats.avgG - centerAvgG, 2) +
+          Math.pow(stats.avgB - centerAvgB, 2)
         );
-
+        
         // Column is bar if: uniform AND (differs from center OR center has detail)
         return rgbDistance > 35 || centerAvgVariance > 65;
       };
@@ -482,22 +444,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = {
         leftBar: leftBarPercent,
         rightBar: rightBarPercent,
-        totalPercent: leftBarPercent + rightBarPercent,
+        totalPercent: leftBarPercent + rightBarPercent
       };
 
       // Log analysis details
       console.log(`[Thumbnail Analysis] URL: ${thumbnailUrl}`);
-      console.log(
-        ` Center variance: ${centerAvgVariance.toFixed(2)}, RGB: (${centerAvgR.toFixed(0)}, ${centerAvgG.toFixed(0)}, ${centerAvgB.toFixed(0)})`
-      );
+      console.log(`  Center variance: ${centerAvgVariance.toFixed(2)}, RGB: (${centerAvgR.toFixed(0)}, ${centerAvgG.toFixed(0)}, ${centerAvgB.toFixed(0)})`);
       if (symmetryCorrected) {
-        console.log(` Symmetry correction applied - mirrored bars to both sides`);
+        console.log(`  Symmetry correction applied - mirrored bars to both sides`);
       }
-      console.log(
-        ` Detected bars - Left: ${leftBarPercent.toFixed(1)}%, Right: ${rightBarPercent.toFixed(1)}%, Total: ${result.totalPercent.toFixed(1)}%`
-      );
+      console.log(`  Detected bars - Left: ${leftBarPercent.toFixed(1)}%, Right: ${rightBarPercent.toFixed(1)}%, Total: ${result.totalPercent.toFixed(1)}%`);
 
       thumbnailAnalysisCache.set(thumbnailUrl, result);
+
       res.json(result);
     } catch (error) {
       console.error("Error analyzing thumbnail:", error);
