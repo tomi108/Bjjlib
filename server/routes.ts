@@ -250,7 +250,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        expires: expiresAt,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+        path: "/",
       });
 
       res.json({ isAdmin: true });
