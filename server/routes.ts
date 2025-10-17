@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/videos", async (req, res) => {
     try {
-      const sessionId = req.cookies.adminSessionId;
+      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
 
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
@@ -120,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/videos/:id", async (req, res) => {
     try {
-      const sessionId = req.cookies.adminSessionId;
+      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
 
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/videos/:id", async (req, res) => {
     try {
-      const sessionId = req.cookies.adminSessionId;
+      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
 
       if (!sessionId) {
         return res.status(401).json({ message: "Authentication required" });
@@ -246,15 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.createAdminSession(sessionId, expiresAt);
 
-      res.cookie("adminSessionId", sessionId, {
-        httpOnly: true,
-        secure: true, // Replit uses HTTPS even in dev
-        sameSite: "none", // Required for cross-origin cookies
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-        path: "/",
-      });
-
-      res.json({ isAdmin: true });
+      // Return sessionId in response for localStorage storage
+      res.json({ isAdmin: true, sessionId });
     } catch (error) {
       console.error("Error logging in:", error);
       res.status(500).json({ message: "Failed to log in" });
@@ -263,13 +256,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/logout", async (req, res) => {
     try {
-      const sessionId = req.cookies.adminSessionId;
+      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
 
       if (sessionId) {
         await storage.deleteAdminSession(sessionId);
       }
 
-      res.clearCookie("adminSessionId");
       res.json({ success: true });
     } catch (error) {
       console.error("Error logging out:", error);
@@ -279,7 +271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/session", async (req, res) => {
     try {
-      const sessionId = req.cookies.adminSessionId;
+      // Check header first, then fall back to cookie for backward compatibility
+      const sessionId = req.headers['x-session-id'] as string || req.cookies.adminSessionId;
 
       if (!sessionId) {
         return res.json({ isAdmin: false });
@@ -288,11 +281,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await storage.getAdminSession(sessionId);
 
       if (!session) {
-        res.clearCookie("adminSessionId");
         return res.json({ isAdmin: false });
       }
 
-      res.json({ isAdmin: true });
+      res.json({ isAdmin: true, sessionId });
     } catch (error) {
       console.error("Error checking session:", error);
       res.status(500).json({ message: "Failed to check session" });

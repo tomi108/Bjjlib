@@ -136,7 +136,10 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
       const response = await apiRequest("POST", "/api/admin/login", { password });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { sessionId: string }) => {
+      // Store sessionId in localStorage
+      localStorage.setItem("adminSessionId", data.sessionId);
+      
       toast({
         title: "Login successful",
         description: "You are now logged in as admin",
@@ -159,6 +162,9 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
       return response.json();
     },
     onSuccess: () => {
+      // Clear sessionId from localStorage
+      localStorage.removeItem("adminSessionId");
+      
       toast({
         title: "Logged out",
         description: "You have been logged out",
