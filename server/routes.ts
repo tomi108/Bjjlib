@@ -248,8 +248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.cookie("adminSessionId", sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: true, // Replit uses HTTPS even in dev
+        sameSite: "none", // Required for cross-origin cookies
         maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
         path: "/",
       });
