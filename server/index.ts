@@ -6,30 +6,31 @@ import { storage } from "./storage";
 
 const app = express();
 
-declare module 'http' {
+declare module "http" {
   interface IncomingMessage {
-    rawBody: unknown
+    rawBody: unknown;
   }
 }
+
 app.use(cookieParser());
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
@@ -37,48 +38,36 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
-
   next();
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // Serve sitemap before Vite middleware to ensure proper routing
-  app.get("/sitemap.xml", async (_req, res) => {
-    try {
-      const result = await storage.getAllVideos({ page: 1, limit: 1000 });
-      const videos = result.videos;
-
-      const videoUrls = videos
-        .map(video => {
-          const lastmod = new Date(video.dateAdded).toISOString().split('T')[0];
-          return `  <url>
+    // Serve sitemap before Vite middleware
+    app.get("/sitemap.xml", async (_req, res) => {
+      try {
+        const result = await storage.getAllVideos({ page: 1, limit: 1000 });
+        const videos = result.videos;
+        const videoUrls = videos
+          .map((video) => {
+            const lastmod = new Date(video.dateAdded).toISOString().split("T")[0];
+            return ` <url>
     <loc>https://bjjlib.com/?video=${video.id}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>`;
-        })
-        .join('\n');
-
-      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+          })
+          .join("\n");
+        const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bjjlib.com/</loc>
@@ -87,34 +76,72 @@ app.use((req, res, next) => {
   </url>
 ${videoUrls}
 </urlset>`;
+        res.header("Content-Type", "application/xml");
+        res.send(sitemap);
+      } catch (error) {
+        console.error("Error serving sitemap:", error);
+        res.status(500).send("Failed to generate sitemap");
+      }
+    });
 
-      res.header('Content-Type', 'application/xml');
-      res.send(sitemap);
-    } catch (error) {
-      console.error("Error serving sitemap:", error);
-      res.status(500).send("Failed to generate sitemap");
+    // Add debug logging for route registration
+    app.use((req, res, next) => {
+      if (req.path.startsWith("/auth")) {
+        console.log(`[DEBUG] Request to ${req.path} received`);
+      }
+      next();
+    });
+
+    // Setup Vite in development, ensuring /auth routes are handled by Express
+    if (app.get("env") === "development") {
+      const viteMiddleware = await setupVite(app, server); // Await Vite setup
+      app.use((req, res, next) => {
+        if (req.path.startsWith("/auth")) {
+          return next(); // Pass /auth to Express routes
+        }
+        viteMiddleware(req, res, next); // Apply Vite middleware for other routes
+      });
+    } else {
+      serveStatic(app);
     }
-  });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Start server with port conflict handling
+    const startServer = (port: number) => {
+      server.listen(
+        {
+          port,
+          host: "0.0.0.0",
+          reusePort: true,
+        },
+        () => {
+          log(`serving on port ${port}`);
+          console.log(
+            `Port ${port} opened on https://${process.env.REPL_SLUG}.replit.dev`
+          );
+        }
+      );
+    };
+
+    const defaultPort = parseInt(process.env.PORT || "5000", 10);
+    let port = defaultPort;
+    const maxAttempts = 5;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        startServer(port);
+        break;
+      } catch (err: any) {
+        if (err.code === "EADDRINUSE" && port < defaultPort + maxAttempts) {
+          port++;
+          console.log(`Port ${port - 1} in use, trying ${port}...`);
+          continue;
+        }
+        console.error("Failed to start server after trying multiple ports:", err);
+        throw err;
+      }
+    }
+  } catch (err) {
+    console.error("Server startup error:", err);
+    process.exit(1);
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
