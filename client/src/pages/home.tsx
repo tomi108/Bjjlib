@@ -436,12 +436,18 @@ export default function Home() {
             {(() => {
               const unselectedTags = availableTags.filter(tag => !selectedTagIds.includes(tag.id));
               
+              const getCategoryName = (categoryId: number | null): string => {
+                if (categoryId === null) return "uncategorized";
+                const category = categories.find(c => c.id === categoryId);
+                return category?.name || "uncategorized";
+              };
+              
               const groupedTags = unselectedTags.reduce((acc, tag) => {
-                const category = tag.category || "uncategorized";
-                if (!acc[category]) {
-                  acc[category] = [];
+                const categoryName = getCategoryName(tag.categoryId);
+                if (!acc[categoryName]) {
+                  acc[categoryName] = [];
                 }
-                acc[category].push(tag);
+                acc[categoryName].push(tag);
                 return acc;
               }, {} as Record<string, Tag[]>);
 

@@ -759,12 +759,12 @@ function CategoryManagerCard() {
 function TagManagerCard({ allTags }: { allTags: Tag[] }) {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState<string | null>(null);
+  const [newCategoryId, setNewCategoryId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const updateTagMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: number; updates: { name?: string; category?: string | null } }) => {
+    mutationFn: async ({ id, updates }: { id: number; updates: { name?: string; categoryId?: number | null } }) => {
       const response = await apiRequest("PUT", `/api/admin/tags/${id}`, updates);
       return response.json();
     },
@@ -775,7 +775,7 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
       });
       setEditingTag(null);
       setNewName("");
-      setNewCategory(null);
+      setNewCategoryId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
     },
     onError: (error: Error) => {
@@ -812,12 +812,18 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
     queryKey: ["/api/categories"],
   });
 
+  const getCategoryName = (categoryId: number | null): string => {
+    if (categoryId === null) return "uncategorized";
+    const category = categories.find(c => c.id === categoryId);
+    return category?.name || "uncategorized";
+  };
+
   const groupedTags = allTags.reduce((acc, tag) => {
-    const category = tag.category || "uncategorized";
-    if (!acc[category]) {
-      acc[category] = [];
+    const categoryName = getCategoryName(tag.categoryId);
+    if (!acc[categoryName]) {
+      acc[categoryName] = [];
     }
-    acc[category].push(tag);
+    acc[categoryName].push(tag);
     return acc;
   }, {} as Record<string, Tag[]>);
 
@@ -827,18 +833,18 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
   const handleEditTag = (tag: Tag) => {
     setEditingTag(tag);
     setNewName(tag.name);
-    setNewCategory(tag.category || null);
+    setNewCategoryId(tag.categoryId);
   };
 
   const handleSaveTag = () => {
     if (!editingTag) return;
     
-    const updates: { name?: string; category?: string | null } = {};
+    const updates: { name?: string; categoryId?: number | null } = {};
     if (newName && newName !== editingTag.name) {
       updates.name = newName;
     }
-    if (newCategory !== editingTag.category) {
-      updates.category = newCategory;
+    if (newCategoryId !== editingTag.categoryId) {
+      updates.categoryId = newCategoryId;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -848,10 +854,10 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
     }
   };
 
-  const handleQuickCategoryChange = (tag: Tag, category: string | null) => {
+  const handleQuickCategoryChange = (tag: Tag, categoryId: number | null) => {
     updateTagMutation.mutate({ 
       id: tag.id, 
-      updates: { category } 
+      updates: { categoryId } 
     });
   };
 
@@ -886,8 +892,8 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
                       
                       <div className="flex-1 flex items-center gap-2">
                         <Select
-                          value={tag.category || "uncategorized"}
-                          onValueChange={(value) => handleQuickCategoryChange(tag, value === "uncategorized" ? null : value)}
+                          value={tag.categoryId?.toString() || "uncategorized"}
+                          onValueChange={(value) => handleQuickCategoryChange(tag, value === "uncategorized" ? null : parseInt(value))}
                           disabled={updateTagMutation.isPending}
                         >
                           <SelectTrigger className="w-[140px] h-8 bg-gray-900 border-gray-600 text-xs" data-testid={`select-category-${tag.id}`}>
@@ -895,7 +901,7 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
                           </SelectTrigger>
                           <SelectContent className="bg-gray-900 border-gray-700">
                             {categories.map(cat => (
-                              <SelectItem key={cat.id} value={cat.name} className="text-xs">
+                              <SelectItem key={cat.id} value={cat.id.toString()} className="text-xs">
                                 {cat.name}
                               </SelectItem>
                             ))}
@@ -940,15 +946,15 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
                               <div className="space-y-2">
                                 <label className="text-sm font-medium">Category</label>
                                 <Select
-                                  value={newCategory || "uncategorized"}
-                                  onValueChange={(value) => setNewCategory(value === "uncategorized" ? null : value)}
+                                  value={newCategoryId?.toString() || "uncategorized"}
+                                  onValueChange={(value) => setNewCategoryId(value === "uncategorized" ? null : parseInt(value))}
                                 >
                                   <SelectTrigger className="bg-gray-800 border-gray-700" data-testid="select-edit-tag-category">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-gray-900 border-gray-700">
                                     {categories.map(cat => (
-                                      <SelectItem key={cat.id} value={cat.name}>
+                                      <SelectItem key={cat.id} value={cat.id.toString()}>
                                         {cat.name}
                                       </SelectItem>
                                     ))}
