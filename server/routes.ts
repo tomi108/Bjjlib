@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVideoSchema, updateTagSchema } from "@shared/schema";
+import { insertVideoSchema, updateTagSchema, insertCategorySchema, updateCategorySchema } from "@shared/schema";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
 
@@ -263,6 +263,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting tag:", error);
       res.status(500).json({ message: "Failed to delete tag" });
+    }
+  });
+
+  app.get("/api/categories", async (_req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/admin/categories", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
+      const validatedData = insertCategorySchema.parse(req.body);
+      const category = await storage.createCategory(validatedData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to create category" });
+      }
+    }
+  });
+
+  app.put("/api/admin/categories/:id", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+
+      const validatedData = updateCategorySchema.parse(req.body);
+      const category = await storage.updateCategory(id, validatedData);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to update category" });
+      }
+    }
+  });
+
+  app.delete("/api/admin/categories/:id", async (req, res) => {
+    try {
+      const sessionId = req.cookies.adminSessionId;
+      
+      if (!sessionId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const session = await storage.getAdminSession(sessionId);
+      
+      if (!session) {
+        res.clearCookie('adminSessionId');
+        return res.status(401).json({ message: "Invalid or expired session" });
+      }
+      
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+
+      const deleted = await storage.deleteCategory(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
     }
   });
 
