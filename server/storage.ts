@@ -1,5 +1,5 @@
-import { type Video, type InsertVideo, type Tag, type InsertTag, type UpdateTag, type VideoWithTags, type AdminSession } from "@shared/schema";
-import { db, isPostgres, videos, tags, videoTags, adminSessions } from "./db";
+import { type Video, type InsertVideo, type Tag, type InsertTag, type UpdateTag, type VideoWithTags, type AdminSession, type Category, type InsertCategory, type UpdateCategory, TAG_CATEGORIES } from "@shared/schema";
+import { db, isPostgres, videos, tags, videoTags, adminSessions, categories } from "./db";
 import { eq, sql, and, inArray, lt } from "drizzle-orm";
 
 export interface IStorage {
@@ -20,6 +20,12 @@ export interface IStorage {
   deleteTag(id: number): Promise<boolean>;
   
   getCoOccurringTags(selectedTagIds: number[]): Promise<Tag[]>;
+  
+  getAllCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, updates: UpdateCategory): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<boolean>;
   
   createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession>;
   getAdminSession(sessionId: string): Promise<AdminSession | undefined>;
@@ -90,6 +96,14 @@ export class DbStorage implements IStorage {
             expires_at TIMESTAMP NOT NULL
           )
         `);
+
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS categories (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0
+          )
+        `);
       } else {
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS videos (
@@ -145,11 +159,24 @@ export class DbStorage implements IStorage {
             expires_at INTEGER NOT NULL
           )
         `);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0
+          )
+        `);
       }
 
       const defaultTags = ['fundamentals', 'guard', 'submissions', 'sweeps', 'takedowns'];
       for (const tagName of defaultTags) {
         await this.createOrGetTag(tagName);
+      }
+
+      for (let i = 0; i < TAG_CATEGORIES.length; i++) {
+        const categoryName = TAG_CATEGORIES[i];
+        await this.createCategory({ name: categoryName, displayOrder: i });
       }
     } catch (error) {
       console.error("Database initialization error:", error);
@@ -451,6 +478,41 @@ export class DbStorage implements IStorage {
     
     const result = isPostgres ? await tagsQuery : tagsQuery.all();
     return dbAll(result);
+  }
+
+  async getAllCategories(): Promise<Category[]> {
+    const query = db.select().from(categories).orderBy(categories.displayOrder, categories.name);
+    const result = isPostgres ? await query : query.all();
+    return dbAll(result);
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    const query = db.select().from(categories).where(eq(categories.id, id));
+    return dbGet(isPostgres ? await query : query.get());
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    try {
+      const result = dbGet(await db.insert(categories).values(category).returning());
+      if (!result) throw new Error("Failed to create category");
+      return result;
+    } catch (error: any) {
+      if (error.message?.includes("UNIQUE constraint")) {
+        const existing = dbGet(await db.select().from(categories).where(eq(categories.name, category.name)));
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
+  async updateCategory(id: number, updates: UpdateCategory): Promise<Category | undefined> {
+    const result = dbGet(await db.update(categories).set(updates).where(eq(categories.id, id)).returning());
+    return result;
+  }
+
+  async deleteCategory(id: number): Promise<boolean> {
+    const result = dbGet(await db.delete(categories).where(eq(categories.id, id)).returning());
+    return !!result;
   }
 
   async createAdminSession(sessionId: string, expiresAt: Date): Promise<AdminSession> {

@@ -56,10 +56,23 @@ export const adminSessionsPg = pgTable("admin_sessions", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+export const categoriesSqlite = sqliteTable("categories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  displayOrder: integer("display_order").notNull().default(0),
+});
+
+export const categoriesPg = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  name: pgText("name").notNull().unique(),
+  displayOrder: pgInteger("display_order").notNull().default(0),
+});
+
 export let videos = videosSqlite;
 export let tags = tagsSqlite;
 export let videoTags = videoTagsSqlite;
 export let adminSessions = adminSessionsSqlite;
+export let categories = categoriesSqlite;
 
 export const insertVideoSchema = createInsertSchema(videosSqlite).omit({
   id: true,
@@ -77,6 +90,15 @@ export const updateTagSchema = z.object({
   category: z.string().nullable().optional(),
 });
 
+export const insertCategorySchema = createInsertSchema(categoriesSqlite).omit({
+  id: true,
+});
+
+export const updateCategorySchema = z.object({
+  name: z.string().min(1).optional(),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type Video = typeof videos.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
@@ -84,6 +106,9 @@ export type UpdateTag = z.infer<typeof updateTagSchema>;
 export type Tag = typeof tags.$inferSelect;
 export type VideoTag = typeof videoTags.$inferSelect;
 export type AdminSession = typeof adminSessions.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type UpdateCategory = z.infer<typeof updateCategorySchema>;
+export type Category = typeof categories.$inferSelect;
 
 export type VideoWithTags = Video & { tags: Tag[] };
 
