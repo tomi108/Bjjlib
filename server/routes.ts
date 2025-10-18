@@ -187,16 +187,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tags/by-category", async (req, res) => {
+  app.get("/api/tags/by-category-id", async (req, res) => {
     try {
-      const category = req.query.category as string | undefined;
-      const categoryValue = category === 'null' || category === undefined ? null : category;
+      const categoryId = req.query.categoryId as string | undefined;
+      const categoryIdValue = categoryId === 'null' || categoryId === undefined ? null : parseInt(categoryId);
       
-      const tags = await storage.getTagsByCategory(categoryValue);
+      const tags = await storage.getTagsByCategoryId(categoryIdValue);
       res.json(tags);
     } catch (error) {
-      console.error("Error fetching tags by category:", error);
-      res.status(500).json({ message: "Failed to fetch tags by category" });
+      console.error("Error fetching tags by category ID:", error);
+      res.status(500).json({ message: "Failed to fetch tags by category ID" });
     }
   });
 

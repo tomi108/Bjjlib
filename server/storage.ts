@@ -11,10 +11,10 @@ export interface IStorage {
   deleteVideo(id: number): Promise<boolean>;
   
   getAllTags(): Promise<Tag[]>;
-  getTagsByCategory(category: string | null): Promise<Tag[]>;
+  getTagsByCategoryId(categoryId: number | null): Promise<Tag[]>;
   getTag(id: number): Promise<Tag | undefined>;
   getTagByName(name: string): Promise<Tag | undefined>;
-  createOrGetTag(name: string, category?: string | null): Promise<Tag>;
+  createOrGetTag(name: string, categoryId?: number | null): Promise<Tag>;
   updateTag(id: number, updates: UpdateTag): Promise<Tag | undefined>;
   renameTag(id: number, newName: string): Promise<Tag | undefined>;
   deleteTag(id: number): Promise<boolean>;
@@ -66,15 +66,19 @@ export class DbStorage implements IStorage {
         `);
 
         await db.execute(sql`
-          CREATE TABLE IF NOT EXISTS tags (
+          CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0
           )
         `);
-        
+
         await db.execute(sql`
-          ALTER TABLE tags 
-          ADD COLUMN IF NOT EXISTS category TEXT
+          CREATE TABLE IF NOT EXISTS tags (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+          )
         `);
 
         await db.execute(sql`
@@ -94,14 +98,6 @@ export class DbStorage implements IStorage {
             id VARCHAR PRIMARY KEY,
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             expires_at TIMESTAMP NOT NULL
-          )
-        `);
-
-        await db.execute(sql`
-          CREATE TABLE IF NOT EXISTS categories (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            display_order INTEGER NOT NULL DEFAULT 0
           )
         `);
       } else {
@@ -124,19 +120,21 @@ export class DbStorage implements IStorage {
         }
 
         await db.run(sql`
-          CREATE TABLE IF NOT EXISTS tags (
+          CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            display_order INTEGER NOT NULL DEFAULT 0
           )
         `);
-        
-        try {
-          await db.run(sql`ALTER TABLE tags ADD COLUMN category TEXT`);
-        } catch (e: any) {
-          if (!e.message?.includes("duplicate column")) {
-            console.error("Failed to add category column:", e.message);
-          }
-        }
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            category_id INTEGER,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+          )
+        `);
 
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS video_tags (
@@ -159,24 +157,113 @@ export class DbStorage implements IStorage {
             expires_at INTEGER NOT NULL
           )
         `);
-
-        await db.run(sql`
-          CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            display_order INTEGER NOT NULL DEFAULT 0
-          )
-        `);
       }
 
+      // Create categories first
+      for (let i = 0; i < TAG_CATEGORIES.length; i++) {
+        const categoryName = TAG_CATEGORIES[i];
+        await this.createCategory({ name: categoryName, displayOrder: i });
+      }
+
+      // Then create default tags
       const defaultTags = ['fundamentals', 'guard', 'submissions', 'sweeps', 'takedowns'];
       for (const tagName of defaultTags) {
         await this.createOrGetTag(tagName);
       }
 
-      for (let i = 0; i < TAG_CATEGORIES.length; i++) {
-        const categoryName = TAG_CATEGORIES[i];
-        await this.createCategory({ name: categoryName, displayOrder: i });
+      // Migration: Convert tags from category (text) to categoryId (integer)
+      if (isPostgres) {
+        // Add categoryId column if it doesn't exist
+        try {
+          await db.execute(sql`
+            ALTER TABLE tags 
+            ADD COLUMN IF NOT EXISTS category_id INTEGER
+          `);
+        } catch (e: any) {
+          console.error("Failed to add category_id column:", e.message);
+        }
+
+        // Migrate existing tags with category names to use category IDs
+        const allCategoriesQuery = db.select().from(categories);
+        const allCategories = await allCategoriesQuery;
+        
+        for (const category of allCategories) {
+          try {
+            await db.execute(sql`
+              UPDATE tags 
+              SET category_id = ${category.id}
+              WHERE category = ${category.name} AND category_id IS NULL
+            `);
+          } catch (e: any) {
+            console.error(`Failed to migrate category ${category.name}:`, e.message);
+          }
+        }
+
+        // Drop old category column if migration is complete
+        try {
+          await db.execute(sql`ALTER TABLE tags DROP COLUMN IF EXISTS category`);
+        } catch (e: any) {
+          console.error("Failed to drop category column:", e.message);
+        }
+      } else {
+        // SQLite migration
+        try {
+          await db.run(sql`ALTER TABLE tags ADD COLUMN category_id INTEGER`);
+        } catch (e: any) {
+          if (!e.message?.includes("duplicate column")) {
+            console.error("Failed to add category_id column:", e.message);
+          }
+        }
+
+        // Migrate existing tags with category names to use category IDs
+        const allCategoriesQuery = db.select().from(categories);
+        const allCategories = allCategoriesQuery.all();
+        
+        for (const category of allCategories) {
+          try {
+            await db.run(sql`
+              UPDATE tags 
+              SET category_id = ${category.id}
+              WHERE category = ${category.name} AND category_id IS NULL
+            `);
+          } catch (e: any) {
+            console.error(`Failed to migrate category ${category.name}:`, e.message);
+          }
+        }
+
+        // SQLite doesn't support DROP COLUMN easily, so we'll recreate the table
+        try {
+          // Check if old category column still exists
+          const tableInfo = await db.run(sql`PRAGMA table_info(tags)`);
+          const hasOldCategory = tableInfo.some((col: any) => col.name === 'category');
+          
+          if (hasOldCategory) {
+            // Create new table without category column
+            await db.run(sql`
+              CREATE TABLE tags_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                category_id INTEGER,
+                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+              )
+            `);
+            
+            // Copy data
+            await db.run(sql`
+              INSERT INTO tags_new (id, name, category_id)
+              SELECT id, name, category_id FROM tags
+            `);
+            
+            // Drop old table and rename new one
+            await db.run(sql`DROP TABLE tags`);
+            await db.run(sql`ALTER TABLE tags_new RENAME TO tags`);
+            
+            // Recreate indexes
+            await db.run(sql`CREATE INDEX IF NOT EXISTS idx_tags_category_id ON tags(category_id)`);
+          }
+        } catch (e: any) {
+          console.error("Failed to drop category column from SQLite:", e.message);
+        }
       }
     } catch (error) {
       console.error("Database initialization error:", error);
@@ -369,7 +456,7 @@ export class DbStorage implements IStorage {
 
   async getAllTags(): Promise<Tag[]> {
     const tagsQuery = db
-      .selectDistinct({ id: tags.id, name: tags.name, category: tags.category })
+      .selectDistinct({ id: tags.id, name: tags.name, categoryId: tags.categoryId })
       .from(tags)
       .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
       .orderBy(tags.name);
@@ -378,12 +465,12 @@ export class DbStorage implements IStorage {
     return dbAll(tagsWithVideos);
   }
 
-  async getTagsByCategory(category: string | null): Promise<Tag[]> {
+  async getTagsByCategoryId(categoryId: number | null): Promise<Tag[]> {
     const tagsQuery = db
-      .selectDistinct({ id: tags.id, name: tags.name, category: tags.category })
+      .selectDistinct({ id: tags.id, name: tags.name, categoryId: tags.categoryId })
       .from(tags)
       .innerJoin(videoTags, eq(tags.id, videoTags.tagId))
-      .where(category === null ? sql`${tags.category} IS NULL` : eq(tags.category, category))
+      .where(categoryId === null ? sql`${tags.categoryId} IS NULL` : eq(tags.categoryId, categoryId))
       .orderBy(tags.name);
     
     const tagsWithVideos = isPostgres ? await tagsQuery : tagsQuery.all();
@@ -400,12 +487,12 @@ export class DbStorage implements IStorage {
     return dbGet(isPostgres ? await query : query.get());
   }
 
-  async createOrGetTag(name: string, category: string | null = null): Promise<Tag> {
+  async createOrGetTag(name: string, categoryId: number | null = null): Promise<Tag> {
     const normalizedName = name.toLowerCase().trim();
     const existing = await this.getTagByName(normalizedName);
     if (existing) return existing;
 
-    const result = dbGet(await db.insert(tags).values({ name: normalizedName, category }).returning());
+    const result = dbGet(await db.insert(tags).values({ name: normalizedName, categoryId }).returning());
     if (!result) throw new Error("Failed to create tag");
     return result;
   }

@@ -23,13 +23,13 @@ export const videosPg = pgTable("videos", {
 export const tagsSqlite = sqliteTable("tags", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
-  category: text("category"),
+  categoryId: integer("category_id").references(() => categoriesSqlite.id, { onDelete: "set null" }),
 });
 
 export const tagsPg = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: pgText("name").notNull().unique(),
-  category: pgText("category"),
+  categoryId: pgInteger("category_id"),
 });
 
 export const videoTagsSqlite = sqliteTable("video_tags", {
@@ -87,7 +87,7 @@ export const insertTagSchema = createInsertSchema(tagsSqlite).omit({
 
 export const updateTagSchema = z.object({
   name: z.string().min(1).optional(),
-  category: z.string().nullable().optional(),
+  categoryId: z.number().int().nullable().optional(),
 });
 
 export const insertCategorySchema = createInsertSchema(categoriesSqlite).omit({
