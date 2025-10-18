@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertVideoSchema, InsertVideo, VideoWithTags, Tag, TAG_CATEGORIES } from "@shared/schema";
+import { insertVideoSchema, InsertVideo, VideoWithTags, Tag, Category } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -463,8 +463,296 @@ export function AdminTab({ isAdmin }: AdminTabProps) {
         </CardContent>
       </Card>
 
+      <CategoryManagerCard />
       <TagManagerCard allTags={allTags} />
     </div>
+  );
+}
+
+function CategoryManagerCard() {
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [newName, setNewName] = useState("");
+  const [createCategoryName, setCreateCategoryName] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.displayOrder)) : -1;
+      const response = await apiRequest("POST", "/api/admin/categories", {
+        name,
+        displayOrder: maxOrder + 1,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Category created",
+        description: "The category has been created successfully",
+      });
+      setCreateCategoryName("");
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error creating category",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: { name?: string; displayOrder?: number } }) => {
+      const response = await apiRequest("PUT", `/api/admin/categories/${id}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Category updated",
+        description: "The category has been updated successfully",
+      });
+      setEditingCategory(null);
+      setNewName("");
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating category",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/categories/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Category deleted",
+        description: "The category has been deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tags"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error deleting category",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+    setNewName(category.name);
+  };
+
+  const handleSaveCategory = () => {
+    if (!editingCategory || !newName) return;
+    
+    if (newName !== editingCategory.name) {
+      updateCategoryMutation.mutate({ 
+        id: editingCategory.id, 
+        updates: { name: newName } 
+      });
+    } else {
+      setEditingCategory(null);
+    }
+  };
+
+  const handleCreateCategory = () => {
+    if (!createCategoryName.trim()) return;
+    createCategoryMutation.mutate(createCategoryName.trim());
+  };
+
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === categories.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const category = categories[index];
+    const otherCategory = categories[newIndex];
+
+    updateCategoryMutation.mutate({
+      id: category.id,
+      updates: { displayOrder: otherCategory.displayOrder }
+    });
+
+    updateCategoryMutation.mutate({
+      id: otherCategory.id,
+      updates: { displayOrder: category.displayOrder }
+    });
+  };
+
+  return (
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Tags className="w-5 h-5" />
+          Category Manager ({categories.length} categories)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={createCategoryName}
+              onChange={(e) => setCreateCategoryName(e.target.value)}
+              placeholder="New category name..."
+              className="bg-gray-800 border-gray-700 focus:border-blue-600 focus:ring-blue-600"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCreateCategory();
+                }
+              }}
+              data-testid="input-new-category"
+            />
+            <Button
+              onClick={handleCreateCategory}
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={createCategoryMutation.isPending || !createCategoryName.trim()}
+              data-testid="button-create-category"
+            >
+              {createCategoryMutation.isPending ? "Creating..." : "Create"}
+            </Button>
+          </div>
+
+          {categories.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              No categories yet. Create your first category above.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {categories.map((category, index) => (
+                <div
+                  key={category.id}
+                  className="flex items-center gap-2 p-3 bg-gray-800 rounded-lg border border-gray-700"
+                  data-testid={`category-item-${category.id}`}
+                >
+                  <Badge className="bg-blue-600">{category.name}</Badge>
+                  
+                  <div className="flex-1" />
+
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-blue-500"
+                      onClick={() => moveCategory(index, 'up')}
+                      disabled={index === 0 || updateCategoryMutation.isPending}
+                      data-testid={`button-move-up-category-${category.id}`}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-blue-500"
+                      onClick={() => moveCategory(index, 'down')}
+                      disabled={index === categories.length - 1 || updateCategoryMutation.isPending}
+                      data-testid={`button-move-down-category-${category.id}`}
+                    >
+                      ↓
+                    </Button>
+
+                    <Dialog open={editingCategory?.id === category.id} onOpenChange={(open) => !open && setEditingCategory(null)}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-blue-500"
+                          onClick={() => handleEditCategory(category)}
+                          data-testid={`button-edit-category-${category.id}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-gray-900 border-gray-800">
+                        <DialogHeader>
+                          <DialogTitle>Edit Category</DialogTitle>
+                          <DialogDescription className="text-gray-400">
+                            Rename this category. Changes will apply to all tags.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Category Name</label>
+                            <Input
+                              value={newName}
+                              onChange={(e) => setNewName(e.target.value)}
+                              className="bg-gray-800 border-gray-700"
+                              placeholder="Category name"
+                              data-testid="input-edit-category-name"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => setEditingCategory(null)}
+                            className="border-gray-700 hover:bg-gray-800"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSaveCategory}
+                            className="bg-blue-600 hover:bg-blue-700"
+                            disabled={updateCategoryMutation.isPending || !newName}
+                            data-testid="button-save-category"
+                          >
+                            {updateCategoryMutation.isPending ? "Saving..." : "Save"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-red-500"
+                          data-testid={`button-delete-category-${category.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-gray-900 border-gray-800">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                          <AlertDialogDescription className="text-gray-400">
+                            Are you sure you want to delete "{category.name}"? Tags in this category will become uncategorized.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="border-gray-700 hover:bg-gray-800">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteCategoryMutation.mutate(category.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                            data-testid={`button-confirm-delete-category-${category.id}`}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -520,6 +808,10 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
     },
   });
 
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
   const groupedTags = allTags.reduce((acc, tag) => {
     const category = tag.category || "uncategorized";
     if (!acc[category]) {
@@ -529,7 +821,7 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
     return acc;
   }, {} as Record<string, Tag[]>);
 
-  const categoryOrder = [...TAG_CATEGORIES, "uncategorized"];
+  const categoryOrder = [...categories.map(c => c.name), "uncategorized"];
   const sortedCategories = categoryOrder.filter(cat => groupedTags[cat]?.length > 0);
 
   const handleEditTag = (tag: Tag) => {
@@ -602,9 +894,9 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-gray-900 border-gray-700">
-                            {TAG_CATEGORIES.map(cat => (
-                              <SelectItem key={cat} value={cat} className="text-xs">
-                                {cat}
+                            {categories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.name} className="text-xs">
+                                {cat.name}
                               </SelectItem>
                             ))}
                             <SelectItem value="uncategorized" className="text-xs">
@@ -655,9 +947,9 @@ function TagManagerCard({ allTags }: { allTags: Tag[] }) {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-gray-900 border-gray-700">
-                                    {TAG_CATEGORIES.map(cat => (
-                                      <SelectItem key={cat} value={cat}>
-                                        {cat}
+                                    {categories.map(cat => (
+                                      <SelectItem key={cat.id} value={cat.name}>
+                                        {cat.name}
                                       </SelectItem>
                                     ))}
                                     <SelectItem value="uncategorized">

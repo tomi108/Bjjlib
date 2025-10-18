@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch, Link } from "wouter";
-import { VideoWithTags, Tag, TAG_CATEGORIES } from "@shared/schema";
+import { VideoWithTags, Tag, Category } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -218,6 +218,10 @@ export default function Home() {
 
   const { data: allTags = [] } = useQuery<Tag[]>({
     queryKey: ["/api/tags"],
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
   });
 
   const videos = videosData?.videos || [];
@@ -441,7 +445,7 @@ export default function Home() {
                 return acc;
               }, {} as Record<string, Tag[]>);
 
-              const categoryOrder = [...TAG_CATEGORIES, "uncategorized"];
+              const categoryOrder = [...categories.map(c => c.name), "uncategorized"];
               const sortedCategories = categoryOrder.filter(cat => groupedTags[cat]?.length > 0);
 
               if (sortedCategories.length === 0 && selectedTagIds.length > 0) {
