@@ -50,6 +50,7 @@ Preferred communication style: Simple, everyday language.
 - Health check endpoint.
 - Cookie-based session management for admin authentication using httpOnly cookies.
 - Thumbnail analysis endpoint (`/api/analyze-thumbnail`) for variance-based black bar detection (any color bars).
+- **API 404 handling**: Catch-all middleware for non-existent `/api/*` routes returns proper JSON 404 responses (not HTML) to prevent SPA fallback interference.
 
 ### Database Architecture
 
@@ -61,7 +62,8 @@ Preferred communication style: Simple, everyday language.
 
 **Schema Design:**
 - `videos` table: Stores video metadata (title, URL, duration, tags array, timestamps).
-- `tags` table: Manages tag taxonomy with video counts.
+- `tags` table: Manages tag taxonomy with video counts and category assignments.
+- `categories` table: **NEW** - Stores category definitions with custom ordering (id, name, displayOrder).
 - `admin_sessions` table: Stores admin session data.
 - UUID primary keys.
 - Array column type for video tags.
@@ -70,6 +72,8 @@ Preferred communication style: Simple, everyday language.
 **Design Rationale:**
 - Array-based tags simplify queries.
 - Tag count denormalization improves read performance.
+- **Dynamic category system**: Categories moved from hardcoded constants to database table for full customization through admin panel.
+- Category ordering controlled by `displayOrder` field for custom sorting.
 - Shared schema definitions ensure type consistency.
 - Production uses PostgreSQL for persistence, development uses SQLite.
 

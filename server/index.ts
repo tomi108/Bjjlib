@@ -96,6 +96,12 @@ ${videoUrls}
     }
   });
 
+  // Catch-all for non-existent API routes - must be before Vite middleware
+  // This ensures API routes return proper JSON 404 instead of falling through to SPA
+  app.use("/api/*", (_req, res) => {
+    res.status(404).json({ message: "API endpoint not found" });
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
