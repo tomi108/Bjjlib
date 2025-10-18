@@ -29,7 +29,7 @@ export const tagsSqlite = sqliteTable("tags", {
 export const tagsPg = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: pgText("name").notNull().unique(),
-  categoryId: pgInteger("category_id"),
+  categoryId: pgInteger("category_id").references(() => categoriesPg.id, { onDelete: "set null" }),
 });
 
 export const videoTagsSqlite = sqliteTable("video_tags", {
