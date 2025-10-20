@@ -101,6 +101,21 @@ export class DbStorage implements IStorage {
             expires_at TIMESTAMP NOT NULL
           )
         `);
+
+        // MIGRATION: Add category_id column to tags table if it doesn't exist
+        // This fixes databases restored from old backups
+        try {
+          await db.execute(sql`
+            ALTER TABLE tags 
+            ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+          `);
+          console.log("✅ Migration: Added category_id column to tags table");
+        } catch (error: any) {
+          // Column already exists or error adding it
+          if (!error.message?.includes("already exists")) {
+            console.error("Migration warning:", error.message);
+          }
+        }
       } else {
         // SQLite for development
         await db.run(sql`
