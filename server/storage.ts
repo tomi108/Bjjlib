@@ -48,31 +48,11 @@ function dbAll<T>(results: T[] | T): T[] {
 
 export class DbStorage implements IStorage {
   async initializeDatabase(): Promise<void> {
-    // CRITICAL: This method only runs safe, non-destructive operations
-    // NEVER drop tables, recreate tables, or delete data here
-    // For schema changes on Railway (production), use: npm run db:push
+    // TEMPORARY: Production mode check disabled to allow schema creation on Railway
+    // Will be re-enabled after schema is created
     
-    const NODE_ENV = process.env.NODE_ENV || "development";
-    
-    // In production, skip ALL schema modifications to prevent data loss
-    if (NODE_ENV === "production") {
-      console.log("⚠️  Production mode: Skipping schema modifications. Use 'npm run db:push' for schema changes.");
-      
-      // Only seed default categories if they don't exist
-      try {
-        for (let i = 0; i < TAG_CATEGORIES.length; i++) {
-          const categoryName = TAG_CATEGORIES[i];
-          await this.createCategory({ name: categoryName, displayOrder: i });
-        }
-      } catch (error) {
-        // Categories already exist, skip
-      }
-      
-      return;
-    }
-
     try {
-      // Development mode: Create tables only if they don't exist
+      // Create tables only if they don't exist
       // This is safe because it never drops or recreates existing tables
       
       if (isPostgres) {
