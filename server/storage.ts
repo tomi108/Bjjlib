@@ -48,23 +48,34 @@ function dbAll<T>(results: T[] | T): T[] {
 
 export class DbStorage implements IStorage {
   async initializeDatabase(): Promise<void> {
-    try {
-      if (isPostgres) {
-        await db.execute(sql`
-          CREATE TABLE IF NOT EXISTS videos (
-            id SERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            url TEXT NOT NULL,
-            duration TEXT,
-            date_added TIMESTAMP NOT NULL DEFAULT NOW()
-          )
-        `);
-        
-        await db.execute(sql`
-          ALTER TABLE videos 
-          ADD COLUMN IF NOT EXISTS duration TEXT
-        `);
+    // CRITICAL: This method only runs safe, non-destructive operations
+    // NEVER drop tables, recreate tables, or delete data here
+    // For schema changes on Railway (production), use: npm run db:push
+    
+    const NODE_ENV = process.env.NODE_ENV || "development";
+    
+    // In production, skip ALL schema modifications to prevent data loss
+    if (NODE_ENV === "production") {
+      console.log("⚠️  Production mode: Skipping schema modifications. Use 'npm run db:push' for schema changes.");
+      
+      // Only seed default categories if they don't exist
+      try {
+        for (let i = 0; i < TAG_CATEGORIES.length; i++) {
+          const categoryName = TAG_CATEGORIES[i];
+          await this.createCategory({ name: categoryName, displayOrder: i });
+        }
+      } catch (error) {
+        // Categories already exist, skip
+      }
+      
+      return;
+    }
 
+    try {
+      // Development mode: Create tables only if they don't exist
+      // This is safe because it never drops or recreates existing tables
+      
+      if (isPostgres) {
         await db.execute(sql`
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
@@ -78,6 +89,16 @@ export class DbStorage implements IStorage {
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+          )
+        `);
+
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS videos (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            duration TEXT,
+            date_added TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `);
 
@@ -101,24 +122,7 @@ export class DbStorage implements IStorage {
           )
         `);
       } else {
-        await db.run(sql`
-          CREATE TABLE IF NOT EXISTS videos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            url TEXT NOT NULL,
-            duration TEXT,
-            date_added INTEGER NOT NULL DEFAULT (unixepoch())
-          )
-        `);
-        
-        try {
-          await db.run(sql`ALTER TABLE videos ADD COLUMN duration TEXT`);
-        } catch (e: any) {
-          if (!e.message?.includes("duplicate column")) {
-            console.error("Failed to add duration column:", e.message);
-          }
-        }
-
+        // SQLite for development
         await db.run(sql`
           CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,6 +137,16 @@ export class DbStorage implements IStorage {
             name TEXT NOT NULL UNIQUE,
             category_id INTEGER,
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+          )
+        `);
+
+        await db.run(sql`
+          CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            duration TEXT,
+            date_added INTEGER NOT NULL DEFAULT (unixepoch())
           )
         `);
 
@@ -159,16 +173,10 @@ export class DbStorage implements IStorage {
         `);
       }
 
-      // Create categories first
+      // Seed default categories (safe - createCategory checks for duplicates)
       for (let i = 0; i < TAG_CATEGORIES.length; i++) {
         const categoryName = TAG_CATEGORIES[i];
         await this.createCategory({ name: categoryName, displayOrder: i });
-      }
-
-      // Then create default tags
-      const defaultTags = ['fundamentals', 'guard', 'submissions', 'sweeps', 'takedowns'];
-      for (const tagName of defaultTags) {
-        await this.createOrGetTag(tagName);
       }
     } catch (error) {
       console.error("Database initialization error:", error);
