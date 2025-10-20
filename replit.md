@@ -77,6 +77,33 @@ Preferred communication style: Simple, everyday language.
 - Shared schema definitions ensure type consistency.
 - Production uses PostgreSQL for persistence, development uses SQLite.
 
+**🔴 CRITICAL DATABASE SAFETY RULES:**
+
+**NEVER manually delete database files on Replit or Railway** - This causes complete data loss. The application is designed to preserve all data across code deployments.
+
+**For schema changes on Railway (production):**
+1. Update the schema in `shared/schema.ts`
+2. Push changes to Railway (via git push)
+3. Run `npm run db:push` from Railway CLI or dashboard to apply schema changes
+4. **NEVER** delete the database or use DROP TABLE commands
+
+**Production safety mechanisms:**
+- `initializeDatabase()` skips ALL schema modifications when `NODE_ENV=production`
+- Only `CREATE TABLE IF NOT EXISTS` is used (never DROP or recreate)
+- Foreign key constraints ensure referential integrity
+- Categories use ID references to prevent data loss on renames
+
+**Migration strategy:**
+- **Development (Replit)**: Tables auto-create on first run, safe to delete `bjjlib.db` files for fresh start
+- **Production (Railway)**: Schema changes ONLY via `npm run db:push`, never delete database
+- Use `npm run db:push --force` if regular push fails (understands your intent better than manual SQL)
+
+**Data integrity guarantees:**
+- Tags reference categories by ID (not name) via foreign key with `ON DELETE SET NULL`
+- Videos link to tags via junction table with `ON DELETE CASCADE`
+- Renaming categories preserves all tag associations
+- Deleting categories sets tag categoryId to NULL (uncategorized) without data loss
+
 ### Development Environment
 
 **Build System:**
