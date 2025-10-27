@@ -107,8 +107,9 @@ export default function Home() {
   const searchParams = new URLSearchParams(useSearch());
   const [, setLocation] = useLocation();
 
-  const [searchTerm, setSearchTerm] = useState<string>(() => {
-    return searchParams.get("search") || "";
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
+    const tagIds = searchParams.get("tags");
+    return tagIds ? tagIds.split(",").map(Number).filter(n => !isNaN(n)) : [];
   });
   const [currentPage, setCurrentPage] = useState(() => {
     const page = parseInt(searchParams.get("page") || "1");
@@ -172,25 +173,25 @@ export default function Home() {
     }
   };
 
-  const updateUrl = (search: string, page: number) => {
+  const updateUrl = (tags: number[], page: number) => {
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    if (tags.length > 0) params.set("tags", tags.join(","));
     if (page > 1) params.set("page", page.toString());
     const newSearch = params.toString();
     setLocation(`/?${newSearch}`, { replace: true });
   };
 
   useEffect(() => {
-    updateUrl(searchTerm, currentPage);
-  }, [searchTerm, currentPage]);
+    updateUrl(selectedTagIds, currentPage);
+  }, [selectedTagIds, currentPage]);
 
   const { data: videosData, isLoading: videosLoading } = useQuery<{ videos: VideoWithTags[]; total: number }>({
-    queryKey: ["/api/videos", { page: currentPage, search: searchTerm }],
+    queryKey: ["/api/videos", { page: currentPage, tagIds: selectedTagIds }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", currentPage.toString());
       params.set("limit", "20");
-      if (searchTerm) params.set("search", searchTerm);
+      if (selectedTagIds.length > 0) params.set("tagIds", selectedTagIds.join(","));
 
       const response = await fetch(`/api/videos?${params}`);
       if (!response.ok) throw new Error("Failed to fetch videos");
@@ -198,9 +199,36 @@ export default function Home() {
     },
   });
 
+  const { data: availableTags = [] } = useQuery<Tag[]>({
+    queryKey: ["/api/tags/co-occurring", selectedTagIds],
+    queryFn: async () => {
+      if (selectedTagIds.length === 0) {
+        const response = await fetch("/api/tags");
+        if (!response.ok) throw new Error("Failed to fetch tags");
+        return response.json();
+      }
+
+      const params = new URLSearchParams();
+      params.set("tagIds", selectedTagIds.join(","));
+      const response = await fetch(`/api/tags/co-occurring?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch co-occurring tags");
+      return response.json();
+    },
+  });
+
+  const { data: allTags = [] } = useQuery<Tag[]>({
+    queryKey: ["/api/tags"],
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
   const videos = videosData?.videos || [];
   const totalVideos = videosData?.total || 0;
   const totalPages = Math.ceil(totalVideos / 20);
+
+  const selectedTags = allTags.filter(tag => selectedTagIds.includes(tag.id));
 
   // Track durations fetched via YouTube IFrame Player API
   const [videoDurations, setVideoDurations] = useState<Record<number, string>>({});
