@@ -182,14 +182,13 @@ export class DbStorage implements IStorage {
     const page = options?.page || 1;
     const limit = options?.limit || 20;
     const offset = (page - 1) * limit;
-    const search = options?.search?.trim();
+    const search = options?.search?.toLowerCase();
     const tagIds = options?.tagIds || [];
 
     let query = db.select().from(videos);
     
     if (search) {
-      // Case-insensitive partial matching using LOWER and LIKE
-      query = query.where(sql`LOWER(${videos.title}) LIKE LOWER(${'%' + search + '%'})`);
+      query = query.where(sql`LOWER(${videos.title}) LIKE ${'%' + search + '%'}`);
     }
 
     if (tagIds.length > 0) {
