@@ -110,6 +110,9 @@ export default function Home() {
     const tagIds = searchParams.get("tags");
     return tagIds ? tagIds.split(",").map(Number).filter(n => !isNaN(n)) : [];
   });
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return searchParams.get("search") || "";
+  });
   const [currentPage, setCurrentPage] = useState(() => {
     const page = parseInt(searchParams.get("page") || "1");
     return isNaN(page) ? 1 : page;
@@ -172,25 +175,27 @@ export default function Home() {
     }
   };
 
-  const updateUrl = (tags: number[], page: number) => {
+  const updateUrl = (tags: number[], page: number, search: string) => {
     const params = new URLSearchParams();
     if (tags.length > 0) params.set("tags", tags.join(","));
     if (page > 1) params.set("page", page.toString());
+    if (search) params.set("search", search);
     const newSearch = params.toString();
     setLocation(`/?${newSearch}`, { replace: true });
   };
 
   useEffect(() => {
-    updateUrl(selectedTagIds, currentPage);
-  }, [selectedTagIds, currentPage]);
+    updateUrl(selectedTagIds, currentPage, searchTerm);
+  }, [selectedTagIds, currentPage, searchTerm]);
 
   const { data: videosData, isLoading: videosLoading } = useQuery<{ videos: VideoWithTags[]; total: number }>({
-    queryKey: ["/api/videos", { page: currentPage, tagIds: selectedTagIds }],
+    queryKey: ["/api/videos", { page: currentPage, tagIds: selectedTagIds, search: searchTerm }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", currentPage.toString());
       params.set("limit", "20");
       if (selectedTagIds.length > 0) params.set("tagIds", selectedTagIds.join(","));
+      if (searchTerm) params.set("search", searchTerm);
 
       const response = await fetch(`/api/videos?${params}`);
       if (!response.ok) throw new Error("Failed to fetch videos");
@@ -379,6 +384,39 @@ export default function Home() {
         )}
         
         <div className="space-y-6 mb-8">
+          <div className="max-w-md">
+            <label htmlFor="video-title-search" className="block text-sm font-medium mb-2">
+              Search by Video Title
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                id="video-title-search"
+                type="text"
+                placeholder="Search videos..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-10 bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
+                data-testid="input-video-title-search"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-100"
+                  data-testid="button-clear-search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {selectedTags.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
