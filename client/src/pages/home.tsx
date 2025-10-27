@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch, Link } from "wouter";
-import { VideoWithTags, Tag, Category } from "@shared/schema";
+import { VideoWithTags } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, X, ChevronLeft, ChevronRight, Video as VideoIcon, AlertCircle, Play, LogIn, LogOut, Settings, Pencil } from "lucide-react";
-import { TagAutosuggest } from "@/components/tag-autosuggest";
 import { AdminTab } from "@/components/admin-tab";
 import {
   Dialog,
@@ -107,9 +106,8 @@ export default function Home() {
   const searchParams = new URLSearchParams(useSearch());
   const [, setLocation] = useLocation();
 
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(() => {
-    const tagIds = searchParams.get("tags");
-    return tagIds ? tagIds.split(",").map(Number).filter(n => !isNaN(n)) : [];
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return searchParams.get("search") || "";
   });
   const [currentPage, setCurrentPage] = useState(() => {
     const page = parseInt(searchParams.get("page") || "1");
@@ -173,25 +171,25 @@ export default function Home() {
     }
   };
 
-  const updateUrl = (tags: number[], page: number) => {
+  const updateUrl = (search: string, page: number) => {
     const params = new URLSearchParams();
-    if (tags.length > 0) params.set("tags", tags.join(","));
+    if (search) params.set("search", search);
     if (page > 1) params.set("page", page.toString());
     const newSearch = params.toString();
     setLocation(`/?${newSearch}`, { replace: true });
   };
 
   useEffect(() => {
-    updateUrl(selectedTagIds, currentPage);
-  }, [selectedTagIds, currentPage]);
+    updateUrl(searchQuery, currentPage);
+  }, [searchQuery, currentPage]);
 
   const { data: videosData, isLoading: videosLoading } = useQuery<{ videos: VideoWithTags[]; total: number }>({
-    queryKey: ["/api/videos", { page: currentPage, tagIds: selectedTagIds }],
+    queryKey: ["/api/videos", { page: currentPage, search: searchQuery }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", currentPage.toString());
       params.set("limit", "20");
-      if (selectedTagIds.length > 0) params.set("tagIds", selectedTagIds.join(","));
+      if (searchQuery) params.set("search", searchQuery);
 
       const response = await fetch(`/api/videos?${params}`);
       if (!response.ok) throw new Error("Failed to fetch videos");
@@ -199,36 +197,9 @@ export default function Home() {
     },
   });
 
-  const { data: availableTags = [] } = useQuery<Tag[]>({
-    queryKey: ["/api/tags/co-occurring", selectedTagIds],
-    queryFn: async () => {
-      if (selectedTagIds.length === 0) {
-        const response = await fetch("/api/tags");
-        if (!response.ok) throw new Error("Failed to fetch tags");
-        return response.json();
-      }
-
-      const params = new URLSearchParams();
-      params.set("tagIds", selectedTagIds.join(","));
-      const response = await fetch(`/api/tags/co-occurring?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch co-occurring tags");
-      return response.json();
-    },
-  });
-
-  const { data: allTags = [] } = useQuery<Tag[]>({
-    queryKey: ["/api/tags"],
-  });
-
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
   const videos = videosData?.videos || [];
   const totalVideos = videosData?.total || 0;
   const totalPages = Math.ceil(totalVideos / 20);
-
-  const selectedTags = allTags.filter(tag => selectedTagIds.includes(tag.id));
 
   // Track durations fetched via YouTube IFrame Player API
   const [videoDurations, setVideoDurations] = useState<Record<number, string>>({});
@@ -277,31 +248,13 @@ export default function Home() {
     fetchDurations();
   }, [videos, videoDurations]);
 
-  const toggleTag = (tagId: number) => {
-    setSelectedTagIds(prev => {
-      if (prev.includes(tagId)) {
-        return prev.filter(id => id !== tagId);
-      }
-      return [...prev, tagId];
-    });
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
     setCurrentPage(1);
   };
 
-  const removeTag = (tagId: number) => {
-    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
-    setCurrentPage(1);
-  };
-
-  const addTagByName = (tagName: string) => {
-    const tag = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
-    if (tag && !selectedTagIds.includes(tag.id)) {
-      setSelectedTagIds(prev => [...prev, tag.id]);
-      setCurrentPage(1);
-    }
-  };
-
-  const clearAll = () => {
-    setSelectedTagIds([]);
+  const clearSearch = () => {
+    setSearchQuery("");
     setCurrentPage(1);
   };
 
@@ -387,102 +340,31 @@ export default function Home() {
           </div>
         )}
         
-        <div className="space-y-6 mb-8">
+        <div className="mb-8">
           <div className="max-w-md">
             <h2 className="block text-sm font-medium mb-2">
-              Quick tag search
+              Search videos by title
             </h2>
-            <TagAutosuggest
-              allTags={allTags}
-              selectedTags={selectedTags.map(t => t.name)}
-              onAddTag={addTagByName}
-              placeholder="Search tags..."
-              className="bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
-              testId="input-browse-tag-search"
-            />
-          </div>
-
-          {selectedTags.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium">Selected tags</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAll}
-                  className="text-xs text-gray-400 hover:text-gray-100"
-                  data-testid="button-clear-all"
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search videos..."
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-9 bg-gray-900 border-gray-800 focus:border-blue-600 focus:ring-blue-600"
+                data-testid="input-search-videos"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-100"
+                  data-testid="button-clear-search"
                 >
-                  Clear all
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {selectedTags.map(tag => (
-                  <button
-                    key={tag.id}
-                    onClick={() => removeTag(tag.id)}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors"
-                    data-testid={`selected-tag-${tag.id}`}
-                  >
-                    {tag.name}
-                    <X className="w-3 h-3" />
-                  </button>
-                ))}
-              </div>
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          )}
-
-          <div className="space-y-4">
-            {(() => {
-              const unselectedTags = availableTags.filter(tag => !selectedTagIds.includes(tag.id));
-              
-              const getCategoryName = (categoryId: number | null): string => {
-                if (categoryId === null) return "uncategorized";
-                const category = categories.find(c => c.id === categoryId);
-                return category?.name || "uncategorized";
-              };
-              
-              const groupedTags = unselectedTags.reduce((acc, tag) => {
-                const categoryName = getCategoryName(tag.categoryId);
-                if (!acc[categoryName]) {
-                  acc[categoryName] = [];
-                }
-                acc[categoryName].push(tag);
-                return acc;
-              }, {} as Record<string, Tag[]>);
-
-              const categoryOrder = [...categories.map(c => c.name), "uncategorized"];
-              const sortedCategories = categoryOrder.filter(cat => groupedTags[cat]?.length > 0);
-
-              if (sortedCategories.length === 0 && selectedTagIds.length > 0) {
-                return (
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Available tags</h3>
-                    <p className="text-sm text-gray-400">No co-occurring tags found</p>
-                  </div>
-                );
-              }
-
-              return sortedCategories.map(category => (
-                <div key={category}>
-                  <h3 className="text-sm font-medium mb-2 capitalize text-blue-400">
-                    {category === "uncategorized" ? "Available tags" : category}
-                  </h3>
-                  <div className="flex flex-wrap gap-2" role="list" aria-label={`${category} filter tags`}>
-                    {groupedTags[category].map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => toggleTag(tag.id)}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-colors border border-gray-700 hover:bg-gray-800 text-gray-300"
-                        data-testid={`tag-filter-${tag.id}`}
-                      >
-                        {tag.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ));
-            })()}
           </div>
         </div>
 
@@ -696,13 +578,13 @@ export default function Home() {
               <VideoIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No videos found</h3>
               <p className="text-sm text-gray-400 mb-6">
-                {selectedTagIds.length > 0
-                  ? "Try adjusting your filters"
+                {searchQuery
+                  ? "Try a different search term"
                   : "No videos have been added yet. Switch to Admin to add your first video."}
               </p>
-              {selectedTagIds.length > 0 && (
-                <Button onClick={clearAll} className="bg-blue-600 hover:bg-blue-700">
-                  Clear filters
+              {searchQuery && (
+                <Button onClick={clearSearch} className="bg-blue-600 hover:bg-blue-700">
+                  Clear search
                 </Button>
               )}
             </div>
